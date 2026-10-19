@@ -9,6 +9,7 @@ import {
 import { registerScreenCapture } from './capture.ts';
 import { registerPushToTalk } from './ptt.ts';
 import { originOf } from './origin.ts';
+import { registerSystemSettings } from './system.ts';
 
 const ALLOWED_PERMISSIONS = new Set([
   'media',
@@ -29,16 +30,20 @@ export function createMainWindow({ url, preload, show = true }: MainWindowOption
   // Opaque origins (file:, data:) all serialize to 'null' and would match each other in the trust checks.
   if (origin === 'null') throw new Error(`App URL needs an http(s) origin: ${url}`);
   const win = new BrowserWindow({
-    width: 1100,
-    height: 760,
+    width: 1280,
+    height: 800,
+    minWidth: 800,
+    minHeight: 600,
     show,
     title: 'screenshare',
+    backgroundColor: '#1d1b19',
     webPreferences: { preload, contextIsolation: true, sandbox: true, nodeIntegration: false },
   });
 
   restrictPermissions(win.webContents.session, origin);
   registerScreenCapture(win.webContents.session, origin);
   registerPushToTalk(origin);
+  registerSystemSettings(origin);
 
   win.webContents.on('will-navigate', (event, target) => {
     if (originOf(target) !== origin) event.preventDefault();

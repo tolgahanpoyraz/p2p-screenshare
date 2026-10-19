@@ -34,7 +34,13 @@ export class Session extends Emitter<SessionEvents> {
     const config = await fetchConfig(baseUrl);
     const call = new Call({ signalingUrl: signalingUrl(baseUrl, roomId), iceServers: config.iceServers });
     const session = new Session(call, settings);
-    await session.openMicrophone();
+    try {
+      await session.openMicrophone();
+    } catch (error) {
+      // Don't hold a seat in the room without a mic (e.g. permission denied).
+      session.leave();
+      throw error;
+    }
     return session;
   }
 
@@ -54,6 +60,7 @@ export class Session extends Emitter<SessionEvents> {
     this.camera.settings = { ...s.camera };
     this.screen.quality = s.screen;
     this.applyBinding(s);
+    call.setProfile(s.you);
 
     call.on('error', (error) => this.emit('error', error));
     this.unsubscribe = settings.on('change', ({ settings, changed }) => {
@@ -117,6 +124,9 @@ export class Session extends Emitter<SessionEvents> {
           break;
         case 'screen':
           await this.screen.setQuality(s.screen);
+          break;
+        case 'you':
+          this.call.setProfile(s.you);
           break;
       }
     }

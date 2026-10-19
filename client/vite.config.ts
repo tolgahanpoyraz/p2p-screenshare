@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  oxc: { jsx: { runtime: 'automatic', importSource: 'preact' } },
   server: {
     proxy: {
       '/api': 'http://localhost:8787',

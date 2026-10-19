@@ -24,7 +24,8 @@ export async function openMicrophone(deviceId?: string, processing = defaultVoic
 }
 
 export async function fetchConfig(baseUrl: string): Promise<ClientConfig> {
-  const response = await fetch(new URL('/api/config', baseUrl));
+  const response = await fetch(new URL('/api/config', baseUrl)).catch(() => null);
+  if (!response?.ok) throw new Error('server-unreachable');
   return response.json();
 }
 

@@ -9,6 +9,12 @@ export class LevelMeter {
     this.analyser.fftSize = 1024;
     this.samples = new Float32Array(this.analyser.fftSize);
     this.context.createMediaStreamSource(new MediaStream([track])).connect(this.analyser);
+    this.resume();
+  }
+
+  /** Contexts made before any user gesture start suspended (and read as silence). */
+  resume() {
+    if (this.context.state === 'suspended') this.context.resume().catch(() => {});
   }
 
   /** Loudness from 0 (silence, -60 dBFS or below) to 1 (full scale). */

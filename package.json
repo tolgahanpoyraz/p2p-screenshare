@@ -12,6 +12,8 @@
     "vite": "^8.3.4"
   },
   "dependencies": {
+    "@material-symbols/font-400": "^0.48.0",
+    "preact": "^11.0.1",
     "uiohook-napi": "^1.5.5",
     "ws": "^8.22.0"
   },

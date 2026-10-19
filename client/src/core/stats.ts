@@ -10,6 +10,7 @@ export interface StreamStats {
   height?: number;
   fps?: number;
   packetsLost?: number;
+  lossPercent?: number;
   jitterMs?: number;
   implementation?: string;
   hardware?: boolean;
@@ -17,10 +18,17 @@ export interface StreamStats {
   decodeMs?: number;
 }
 
+export interface Route {
+  relayed: boolean;
+  protocol: string;
+  local: string;
+  remote: string;
+}
+
 export interface ConnectionStats {
   rttMs?: number;
   availableOutgoingKbps?: number;
-  route?: string;
+  route?: Route;
   streams: StreamStats[];
 }
 
@@ -47,7 +55,14 @@ export class StatsSampler {
         result.availableOutgoingKbps = report.availableOutgoingBitrate && Math.round(report.availableOutgoingBitrate / 1000);
         const local = reports.get(report.localCandidateId);
         const remote = reports.get(report.remoteCandidateId);
-        result.route = local && remote && `${local.candidateType} → ${remote.candidateType} (${local.protocol})`;
+        if (local && remote) {
+          result.route = {
+            relayed: local.candidateType === 'relay' || remote.candidateType === 'relay',
+            protocol: local.relayProtocol ?? local.protocol,
+            local: local.candidateType,
+            remote: remote.candidateType,
+          };
+        }
       }
 
       const direction = report.type === 'outbound-rtp' ? 'send' : report.type === 'inbound-rtp' ? 'receive' : null;
@@ -70,6 +85,7 @@ export class StatsSampler {
         height: report.frameHeight,
         fps: report.framesPerSecond,
         packetsLost: report.packetsLost,
+        lossPercent: lossPercent(report.packetsLost, report.packetsReceived),
         jitterMs: msOf(report.jitter),
         implementation: report.encoderImplementation ?? report.decoderImplementation,
         hardware: report.powerEfficientEncoder ?? report.powerEfficientDecoder,
@@ -83,4 +99,9 @@ export class StatsSampler {
 
 function msOf(seconds: number | undefined) {
   return seconds === undefined ? undefined : Math.round(seconds * 10_000) / 10;
+}
+
+function lossPercent(lost: number | undefined, received: number | undefined) {
+  if (lost === undefined || !received) return undefined;
+  return Math.round((lost / (lost + received)) * 1000) / 10;
 }

@@ -1,0 +1,64 @@
+/* screenshare design tokens. Apply data-theme="dark" (default) or "light" on the app root. */
+:root {
+  --font: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --r-xs: 6px; --r-sm: 10px; --r-md: 16px; --r-lg: 24px; --r-xl: 32px; --r-pill: 999px;
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 32px; --s-7: 48px;
+  --t-xs: 11px; --t-sm: 13px; --t-md: 15px; --t-lg: 20px; --t-xl: 28px; --t-xxl: 44px;
+  /* identity swatches (same L/C, varied hue). Defaults: you = 55, them = 250 */
+  --swatch-apricot: oklch(0.76 0.11 55);
+  --swatch-sky:     oklch(0.76 0.11 250);
+  --swatch-rose:    oklch(0.76 0.11 10);
+  --swatch-lilac:   oklch(0.76 0.11 300);
+  --swatch-butter:  oklch(0.76 0.11 95);
+  --you: var(--swatch-apricot);
+  --them: var(--swatch-sky);
+}
+[data-theme="dark"] {
+  --bg: oklch(0.205 0.01 60);
+  --surface: oklch(0.25 0.011 60);
+  --surface-2: oklch(0.30 0.012 60);
+  --surface-3: oklch(0.36 0.013 60);
+  --glass: oklch(0.24 0.011 60 / .84);          /* + backdrop-filter: blur(14–18px) */
+  --line: oklch(0.42 0.012 60 / .5);
+  --ink: oklch(0.95 0.01 80);
+  --ink-2: oklch(0.80 0.012 75);
+  --ink-3: oklch(0.67 0.012 70);
+  --stage: oklch(0.15 0.008 60);                /* letterbox behind video */
+  --live: oklch(0.76 0.16 150);                 /* transmitting / on air / primary */
+  --live-ink: oklch(0.22 0.05 150);
+  --live-soft: oklch(0.76 0.16 150 / .18);
+  --warn: oklch(0.83 0.12 80);
+  --warn-soft: oklch(0.83 0.12 80 / .16);
+  --danger: oklch(0.70 0.15 28);
+  --danger-ink: oklch(0.20 0.04 28);
+  --danger-soft: oklch(0.70 0.15 28 / .18);
+  --scrim: oklch(0.10 0.01 60 / .62);
+  --shadow: 0 18px 50px oklch(0 0 0 / .4);
+}
+[data-theme="light"] {
+  --bg: oklch(0.965 0.013 82);
+  --surface: oklch(0.99 0.006 82);
+  --surface-2: oklch(0.935 0.016 80);
+  --surface-3: oklch(0.885 0.018 78);
+  --glass: oklch(0.99 0.006 82 / .88);
+  --line: oklch(0.80 0.018 75 / .7);
+  --ink: oklch(0.25 0.015 60);
+  --ink-2: oklch(0.42 0.015 60);
+  --ink-3: oklch(0.52 0.014 60);
+  --stage: oklch(0.915 0.016 80);
+  --live: oklch(0.58 0.15 150);
+  --live-ink: oklch(0.99 0.01 150);
+  --live-soft: oklch(0.58 0.15 150 / .13);
+  --warn: oklch(0.58 0.12 70);
+  --warn-soft: oklch(0.75 0.12 80 / .2);
+  --danger: oklch(0.55 0.17 28);
+  --danger-ink: oklch(0.99 0.01 28);
+  --danger-soft: oklch(0.55 0.17 28 / .12);
+  --scrim: oklch(0.30 0.02 60 / .32);
+  --shadow: 0 18px 50px oklch(0.35 0.03 60 / .2);
+}
+@keyframes ring    { 0% { transform: scale(1); opacity: .55 } 100% { transform: scale(1.9); opacity: 0 } }
+@keyframes slide   { 0% { transform: translateX(-100%) } 100% { transform: translateX(250%) } }
+@keyframes breathe { 0%,100% { opacity: .45 } 50% { opacity: 1 } }
+@keyframes toastIn { from { transform: translateY(10px); opacity: 0 } to { transform: none; opacity: 1 } }

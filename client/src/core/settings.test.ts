@@ -62,8 +62,9 @@ test('reports only keys that actually changed', () => {
   assert.deepEqual(changes, [['releaseDelayMs']]);
 });
 
-test('a binding can be set and cleared', () => {
+test('push-to-talk defaults to Shift, and can be rebound or cleared', () => {
   const store = new SettingsStore(storage());
+  assert.equal(store.value.pushToTalkBinding?.label, 'Shift');
   store.update({ pushToTalkBinding: { kind: 'key', code: 91, label: 'F13' } });
   assert.equal(store.value.pushToTalkBinding?.label, 'F13');
   store.update({ pushToTalkBinding: null });

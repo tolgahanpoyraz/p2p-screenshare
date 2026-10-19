@@ -33,13 +33,22 @@ export interface VoiceState {
   transmitting: boolean;
 }
 
-type ControlMessage = { type: 'media'; active: SlotFlags } | ({ type: 'voice' } & VoiceState);
+export interface Profile {
+  name: string;
+  hue?: number;
+}
+
+type ControlMessage =
+  | { type: 'media'; active: SlotFlags }
+  | ({ type: 'voice' } & VoiceState)
+  | ({ type: 'profile' } & Profile);
 
 type CallEvents = {
   state: CallState;
   'remote-track': { slot: Slot; track: MediaStreamTrack | null };
   'remote-media': SlotFlags;
   'remote-voice': VoiceState | null;
+  'remote-profile': Profile | null;
   error: { code: string; message: string };
 };
 
@@ -57,7 +66,12 @@ export class Call extends Emitter<CallEvents> {
   state: CallState = 'joining';
   remoteMedia = noSlots();
   remoteVoice: VoiceState | null = null;
+  remoteProfile: Profile | null = null;
+  remoteTracks = new Map<Slot, MediaStreamTrack>();
+  /** Set when the server refuses to seat us (full room, malformed id). */
+  rejection: { code: string; message: string } | null = null;
   private voice: VoiceState = { mode: 'open', transmitting: true };
+  private profile: Profile = { name: '' };
   private options: CallOptions;
   private signaling: Signaling;
   private pc: RTCPeerConnection | null = null;
@@ -78,7 +92,10 @@ export class Call extends Emitter<CallEvents> {
       this.setState('waiting');
     });
     this.signaling.on('signal', ({ data }) => this.enqueue(() => this.handleSignal(data)));
-    this.signaling.on('error', (error) => this.emit('error', error));
+    this.signaling.on('error', (error) => {
+      if (error.code === 'room-full' || error.code === 'bad-room') this.rejection = error;
+      this.emit('error', error);
+    });
     this.signaling.on('closed', () => {
       if (!this.pc) this.setState('closed');
     });
@@ -102,6 +119,11 @@ export class Call extends Emitter<CallEvents> {
   setVoiceState(voice: VoiceState) {
     this.voice = voice;
     this.sendVoiceState();
+  }
+
+  setProfile(profile: Profile) {
+    this.profile = profile;
+    this.sendProfile();
   }
 
   slotForMid(mid: string): Slot | undefined {
@@ -135,7 +157,9 @@ export class Call extends Emitter<CallEvents> {
     };
     pc.ontrack = ({ transceiver, track }) => {
       const slot = this.slotOf(transceiver);
-      if (slot) this.emit('remote-track', { slot, track });
+      if (!slot) return;
+      this.remoteTracks.set(slot, track);
+      this.emit('remote-track', { slot, track });
     };
     pc.onnegotiationneeded = () => {
       if (this.initiator) this.enqueue(() => this.sendDescription());
@@ -157,6 +181,7 @@ export class Call extends Emitter<CallEvents> {
     channel.onopen = () => {
       this.sendMediaState();
       this.sendVoiceState();
+      this.sendProfile();
     };
     channel.onmessage = (event) => this.handleControl(JSON.parse(event.data));
 
@@ -262,6 +287,12 @@ export class Call extends Emitter<CallEvents> {
     this.channel.send(JSON.stringify(message));
   }
 
+  private sendProfile() {
+    if (this.channel?.readyState !== 'open') return;
+    const message: ControlMessage = { type: 'profile', ...this.profile };
+    this.channel.send(JSON.stringify(message));
+  }
+
   private handleControl(message: ControlMessage) {
     if (message.type === 'media') {
       this.remoteMedia = { ...noSlots(), ...message.active };
@@ -269,6 +300,12 @@ export class Call extends Emitter<CallEvents> {
     } else if (message.type === 'voice') {
       this.remoteVoice = { mode: message.mode, transmitting: message.transmitting };
       this.emit('remote-voice', this.remoteVoice);
+    } else if (message.type === 'profile') {
+      this.remoteProfile = {
+        name: String(message.name ?? '').slice(0, 40),
+        hue: typeof message.hue === 'number' ? message.hue : undefined,
+      };
+      this.emit('remote-profile', this.remoteProfile);
     }
   }
 
@@ -289,8 +326,11 @@ export class Call extends Emitter<CallEvents> {
     this.channel = null;
     this.remoteMedia = noSlots();
     this.remoteVoice = null;
+    this.remoteProfile = null;
+    this.remoteTracks.clear();
     this.emit('remote-media', this.remoteMedia);
     this.emit('remote-voice', null);
+    this.emit('remote-profile', null);
     for (const [slot] of SLOTS) this.emit('remote-track', { slot, track: null });
   }
 }

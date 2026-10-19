@@ -18,6 +18,8 @@ export const defaultCameraSettings: CameraSettings = {
 
 type CameraEvents = {
   change: { active: boolean };
+  /** Fires for every new track, including switches that keep the camera on. */
+  track: MediaStreamTrack | null;
 };
 
 export class Camera extends Emitter<CameraEvents> {
@@ -60,6 +62,7 @@ export class Camera extends Emitter<CameraEvents> {
       if (this.track === track) this.stop();
     });
     this.track = track;
+    this.emit('track', track);
     await this.call.setTrack('camera', track);
     if (generation !== this.generation) return;
     await this.call.configureSender('camera', {
@@ -87,7 +90,9 @@ export class Camera extends Emitter<CameraEvents> {
 
   async stop() {
     const generation = ++this.generation;
+    const hadTrack = this.active;
     this.release();
+    if (hadTrack) this.emit('track', null);
     await this.call.setTrack('camera', null);
     if (generation === this.generation) this.notify();
   }
@@ -104,7 +109,7 @@ export class Camera extends Emitter<CameraEvents> {
   }
 }
 
-function constraints({ deviceId, facingMode, height, frameRate }: CameraSettings): MediaTrackConstraints {
+export function constraints({ deviceId, facingMode, height, frameRate }: CameraSettings): MediaTrackConstraints {
   return {
     ...(deviceId ? { deviceId: { exact: deviceId } } : { facingMode: { ideal: facingMode } }),
     height: { ideal: height },

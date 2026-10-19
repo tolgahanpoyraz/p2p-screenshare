@@ -1,4 +1,4 @@
-import { ipcMain, systemPreferences, type WebContents } from 'electron';
+import { app, ipcMain, systemPreferences, type WebContents } from 'electron';
 import { EventType, uIOhook, UiohookKey, type UiohookKeyboardEvent, type UiohookMouseEvent } from 'uiohook-napi';
 import type { PushToTalkBinding } from '../shared/desktop.ts';
 import { assertTrusted } from './origin.ts';
@@ -22,6 +22,7 @@ let registered = false;
 export function registerPushToTalk(origin: string) {
   if (registered) return;
   registered = true;
+  app.on('will-quit', stopPushToTalk);
 
   ipcMain.handle('ptt:has-permission', (event) => {
     assertTrusted(event, origin);
@@ -96,11 +97,16 @@ function ensureHook() {
   hookRunning = true;
 }
 
-function syncHook() {
-  if (!hookRunning || binding || pendingCapture) return;
+// An input event arriving while Electron tears down Node crashes uiohook, so stop it before quitting.
+export function stopPushToTalk() {
+  if (!hookRunning) return;
   uIOhook.stop();
   uIOhook.removeAllListeners();
   hookRunning = false;
+}
+
+function syncHook() {
+  if (!binding && !pendingCapture) stopPushToTalk();
 }
 
 function onKey(event: UiohookKeyboardEvent) {

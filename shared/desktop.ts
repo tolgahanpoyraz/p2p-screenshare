@@ -11,11 +11,14 @@ export interface PushToTalkBinding {
   label: string;
 }
 
+export type PrivacyPane = 'microphone' | 'camera' | 'screen' | 'accessibility';
+
 export interface DesktopBridge {
   platform: string;
   versions: { electron: string; chrome: string };
   listScreenSources(): Promise<ScreenSource[]>;
   selectScreenSource(id: string, options: { audio: boolean }): Promise<void>;
+  openPrivacySettings(pane: PrivacyPane): Promise<void>;
   pushToTalk: {
     hasPermission(): Promise<boolean>;
     /** Shows the macOS Accessibility prompt; resolves with the current state (the user may grant it later). */

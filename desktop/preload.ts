@@ -6,6 +6,7 @@ const bridge: DesktopBridge = {
   versions: { electron: process.versions.electron, chrome: process.versions.chrome },
   listScreenSources: () => ipcRenderer.invoke('screen:list'),
   selectScreenSource: (id, { audio }) => ipcRenderer.invoke('screen:select', id, audio),
+  openPrivacySettings: (pane) => ipcRenderer.invoke('system:open-privacy', pane),
   pushToTalk: {
     hasPermission: () => ipcRenderer.invoke('ptt:has-permission'),
     requestPermission: () => ipcRenderer.invoke('ptt:request-permission'),

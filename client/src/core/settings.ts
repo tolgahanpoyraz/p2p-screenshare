@@ -1,9 +1,15 @@
 import type { PushToTalkBinding } from '../../../shared/desktop.ts';
+import type { Profile } from './call.ts';
 import { defaultCameraSettings, type CameraSettings } from './camera.ts';
 import { Emitter } from './emitter.ts';
 import { defaultVoiceProcessing, type VoiceProcessing } from './media.ts';
 import { DEFAULT_RELEASE_DELAY_MS, type VoiceMode } from './ptt.ts';
 import { screenPresets, type ScreenQuality } from './screen.ts';
+
+export type Language = 'auto' | 'en' | 'tr';
+
+// uiohook's code for the left Shift key.
+const SHIFT: PushToTalkBinding = { kind: 'key', code: 42, label: 'Shift' };
 
 export interface Settings {
   microphoneId?: string;
@@ -16,6 +22,8 @@ export interface Settings {
   screen: ScreenQuality;
   shareSystemAudio: boolean;
   volumes: { voice: number; show: number };
+  you: Profile;
+  language: Language;
 }
 
 export const defaultSettings: Settings = {
@@ -25,11 +33,13 @@ export const defaultSettings: Settings = {
   voiceProcessing: defaultVoiceProcessing,
   voiceMode: 'open',
   releaseDelayMs: DEFAULT_RELEASE_DELAY_MS,
-  pushToTalkBinding: null,
+  pushToTalkBinding: SHIFT,
   camera: defaultCameraSettings,
   screen: screenPresets['1080p30'],
   shareSystemAudio: true,
   volumes: { voice: 1, show: 1 },
+  you: { name: '' },
+  language: 'auto',
 };
 
 export type SettingsPatch = {

@@ -2,11 +2,14 @@ import { app, BrowserWindow } from 'electron';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { stopPushToTalk } from '../../desktop/ptt.ts';
 
 // A fresh profile per run, so localStorage from tests never reaches the real app (or other runs).
 app.setPath('userData', mkdtempSync(join(tmpdir(), 'screenshare-e2e-')));
 // Electron quits when the last window closes; tests open and close windows freely.
 app.on('window-all-closed', () => {});
+// The UI follows the system language; tests look for English text.
+app.commandLine.appendSwitch('lang', 'en-US');
 
 export const COMPLETE_MARKER = '__e2e_complete__';
 
@@ -20,7 +23,9 @@ export function useFakeMedia({ fakeUi = true, cameras = 1 } = {}) {
 }
 
 export const evaluate = (win: BrowserWindow, code: string, userGesture = false) =>
-  win.webContents.executeJavaScript(code, userGesture);
+  win.webContents.executeJavaScript(code, userGesture).catch((error: Error) => {
+    throw new Error(`${error.message}\n    in: ${code.replace(/\s+/g, ' ').slice(0, 160)}`);
+  });
 
 export async function waitFor(win: BrowserWindow, label: string, code: string, timeoutMs = 15_000) {
   const deadline = Date.now() + timeoutMs;
@@ -44,7 +49,17 @@ export async function openBrowserWindow(url: string) {
   return win;
 }
 
-export const clickJoin = (win: BrowserWindow) => evaluate(win, `document.getElementById('join').click()`);
+export const buttonWithText = (text: string) =>
+  `[...document.querySelectorAll('button')].find((b) => b.textContent.includes(${JSON.stringify(text)}))`;
+
+export const clickButton = (win: BrowserWindow, text: string) => evaluate(win, `${buttonWithText(text)}.click(); true`, true);
+
+export const clickLabel = (win: BrowserWindow, label: string) =>
+  evaluate(win, `document.querySelector('[aria-label=${JSON.stringify(label)}]').click(); true`, true);
+
+export const clickJoin = (win: BrowserWindow) => clickButton(win, 'Join room');
+
+export const pageHasText = (text: string) => `document.body.textContent.includes(${JSON.stringify(text)})`;
 
 export const inboundAudio = `(async () => {
   const stats = await window.call.peerConnection?.getStats();
@@ -71,10 +86,12 @@ export function run(main: () => Promise<void>) {
     main().then(
       () => {
         console.log(COMPLETE_MARKER);
+        stopPushToTalk();
         app.exit(0);
       },
       (error) => {
         console.error(`  ✘ ${error.message}`);
+        stopPushToTalk();
         app.exit(1);
       },
     ),
