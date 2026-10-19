@@ -1,4 +1,5 @@
 import { Call, type Slot } from './core/call.ts';
+import { Camera } from './core/camera.ts';
 import { createRoomId, fetchConfig, openMicrophone, signalingUrl } from './core/media.ts';
 import { ScreenShare, screenPresets, type ScreenQuality, type VideoCodec } from './core/screen.ts';
 import { StatsSampler, type ConnectionStats } from './core/stats.ts';
@@ -34,7 +35,8 @@ async function join(roomId: string) {
 
   const call = new Call({ signalingUrl: signalingUrl(base, roomId), iceServers: config.iceServers });
   const screen = new ScreenShare(call);
-  Object.assign(window, { call, screenShare: screen });
+  const camera = new Camera(call);
+  Object.assign(window, { call, screenShare: screen, camera });
   await call.setTrack('mic', mic);
 
   call.on('state', (state) => {
@@ -46,6 +48,7 @@ async function join(roomId: string) {
   setupControls(call, mic);
   setupRemoteMedia(call);
   if (ScreenShare.supported) setupScreenShare(screen);
+  setupCamera(camera);
   startStats(new StatsSampler(call));
 }
 
@@ -66,6 +69,7 @@ function setupControls(call: Call, mic: MediaStreamTrack) {
 function setupRemoteMedia(call: Call) {
   $('remote').hidden = false;
   const video = $<HTMLVideoElement>('remote-screen');
+  const cameraVideo = $<HTMLVideoElement>('remote-camera');
   const volumes: Partial<Record<Slot, HTMLInputElement>> = {
     mic: $('voice-volume'),
     screenAudio: $('show-volume'),
@@ -80,8 +84,8 @@ function setupRemoteMedia(call: Call) {
   }
 
   call.on('remote-track', ({ slot, track }) => {
-    if (slot === 'screen') {
-      video.srcObject = track && new MediaStream([track]);
+    if (slot === 'screen' || slot === 'camera') {
+      (slot === 'screen' ? video : cameraVideo).srcObject = track && new MediaStream([track]);
       return;
     }
     const volume = volumes[slot];
@@ -98,6 +102,7 @@ function setupRemoteMedia(call: Call) {
 
   call.on('remote-media', (active) => {
     video.hidden = !active.screen;
+    cameraVideo.hidden = !active.camera;
     log(`remote media: ${Object.entries(active).filter(([, on]) => on).map(([slot]) => slot).join(', ') || 'none'}`);
   });
 }
@@ -167,6 +172,35 @@ function setupScreenShare(screen: ScreenShare) {
     apply();
   };
   for (const field of Object.values(fields)) field.onchange = apply;
+}
+
+function setupCamera(camera: Camera) {
+  $('camera').hidden = false;
+  const toggle = $<HTMLButtonElement>('camera-toggle');
+  const switcher = $<HTMLButtonElement>('camera-switch');
+  const devices = $<HTMLSelectElement>('camera-device');
+  const preview = $<HTMLVideoElement>('local-camera');
+
+  const listDevices = async () => {
+    const cameras = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput');
+    devices.replaceChildren(...cameras.map((c, i) => new Option(c.label || `Camera ${i + 1}`, c.deviceId)));
+    devices.value = camera.track?.getSettings().deviceId ?? '';
+  };
+
+  toggle.onclick = () =>
+    (camera.active ? camera.stop() : camera.start()).catch((error) => log(`camera: ${error}`));
+  switcher.onclick = () => camera.switchCamera().catch((error) => log(`camera: ${error}`));
+  devices.onchange = () => camera.start({ deviceId: devices.value }).catch((error) => log(`camera: ${error}`));
+
+  camera.on('change', async ({ active }) => {
+    toggle.textContent = active ? 'Camera off' : 'Camera on';
+    switcher.disabled = !active;
+    preview.hidden = !active;
+    preview.srcObject = camera.track && new MediaStream([camera.track]);
+    preview.classList.toggle('mirrored', camera.track?.getSettings().facingMode !== 'environment');
+    await listDevices();
+  });
+  listDevices();
 }
 
 function startStats(sampler: StatsSampler) {

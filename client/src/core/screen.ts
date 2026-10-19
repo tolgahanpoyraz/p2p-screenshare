@@ -123,6 +123,7 @@ function senderOptions(quality: ScreenQuality) {
     maxBitrateKbps: quality.maxBitrateKbps,
     maxFramerate: quality.frameRate,
     degradation: quality.mode === 'detail' ? 'maintain-resolution' : 'maintain-framerate',
+    priority: 'high',
     codec: quality.codec === 'auto' ? undefined : quality.codec,
   } as const;
 }

@@ -17,7 +17,7 @@
   },
   "scripts": {
     "server": "node --watch server/main.ts",
-    "typecheck": "tsc -p . && tsc -p client && tsc -p desktop",
+    "typecheck": "tsc -p . && tsc -p client && tsc -p client/tsconfig.test.json && tsc -p desktop",
     "dev": "vite client",
     "build": "vite build client",
     "start": "node scripts/dev.ts",

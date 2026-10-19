@@ -16,11 +16,14 @@ const SLOTS = [
 export type CallState = 'joining' | 'waiting' | 'connecting' | 'connected' | 'reconnecting' | 'closed';
 export type SlotFlags = Record<Slot, boolean>;
 export type DegradationPreference = 'maintain-framerate' | 'maintain-resolution' | 'balanced';
+export type Priority = 'very-low' | 'low' | 'medium' | 'high';
 
 export interface SenderOptions {
   maxBitrateKbps?: number;
   maxFramerate?: number;
   degradation?: DegradationPreference;
+  /** Share of bandwidth relative to other streams when the connection is constrained. */
+  priority?: Priority;
   /** A negotiated mimeType such as 'video/VP9'. Omit to let the browser choose. */
   codec?: string;
 }
@@ -34,7 +37,7 @@ type CallEvents = {
   error: { code: string; message: string };
 };
 
-type EncodingParameters = RTCRtpEncodingParameters & { codec?: RTCRtpCodec };
+type EncodingParameters = RTCRtpEncodingParameters & { codec?: RTCRtpCodec; priority?: Priority };
 type SendParameters = RTCRtpSendParameters & { degradationPreference?: DegradationPreference };
 
 const noSlots = (): SlotFlags => ({ mic: false, camera: false, screen: false, screenAudio: false });
@@ -224,6 +227,7 @@ export class Call extends Emitter<CallEvents> {
     if (codec) encoding.codec = codec;
     else delete encoding.codec;
 
+    if (options.priority) encoding.priority = options.priority;
     if (options.degradation) params.degradationPreference = options.degradation;
     await sender.setParameters(params);
   }

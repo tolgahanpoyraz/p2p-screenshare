@@ -3,8 +3,8 @@ import { app, BrowserWindow } from 'electron';
 export const base = process.env.BASE_URL ?? 'http://localhost:5173';
 
 // fakeUi auto-accepts capture prompts, which also bypasses the app's display-media handler.
-export function useFakeMedia({ fakeUi = true } = {}) {
-  app.commandLine.appendSwitch('use-fake-device-for-media-stream');
+export function useFakeMedia({ fakeUi = true, cameras = 1 } = {}) {
+  app.commandLine.appendSwitch('use-fake-device-for-media-stream', `device-count=${cameras}`);
   if (fakeUi) app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
   app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 }

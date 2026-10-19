@@ -29,6 +29,7 @@ run(async () => {
   await waitFor(tablet, 'receiver is told the screen is on', `call.remoteMedia.screen && call.remoteMedia.screenAudio`);
   // Screen capture only emits frames when something changes, so an idle screen may yield just one.
   await waitFor(tablet, 'receiver decodes screen video', `${rtp('inbound-rtp', 'screen')}.then((r) => r?.keyFramesDecoded >= 1)`);
+  await check(mac, 'screen has high bandwidth priority', `call.peerConnection.getTransceivers()[2].sender.getParameters().encodings[0].priority === 'high'`);
   await check(tablet, 'video starts at 6 Mbps', `${rtp('inbound-rtp', 'screen')}.then((r) => r.fmtp.includes('x-google-start-bitrate=6000'))`);
   await waitFor(tablet, 'receiver gets show audio', `${rtp('inbound-rtp', 'screenAudio')}.then((r) => r?.packetsReceived > 50)`);
   await check(tablet, 'show audio negotiated as stereo opus', `${rtp('inbound-rtp', 'screenAudio')}.then((r) => r.fmtp.includes('stereo=1') && r.channels === 2)`);

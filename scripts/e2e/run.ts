@@ -2,7 +2,7 @@ import { execSync, spawn } from 'node:child_process';
 import electron from 'electron';
 import { createSignalingServer } from '../../server/server.ts';
 
-const tests = process.argv.slice(2).length ? process.argv.slice(2) : ['voice', 'desktop', 'screen'];
+const tests = process.argv.slice(2).length ? process.argv.slice(2) : ['voice', 'desktop', 'screen', 'camera'];
 
 execSync('vite build client --logLevel warn && node scripts/build-desktop.ts', { stdio: 'inherit' });
 
