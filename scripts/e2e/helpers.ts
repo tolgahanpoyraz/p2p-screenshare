@@ -2,13 +2,15 @@ import { app, BrowserWindow } from 'electron';
 
 export const base = process.env.BASE_URL ?? 'http://localhost:5173';
 
-export function useFakeMedia() {
+// fakeUi auto-accepts capture prompts, which also bypasses the app's display-media handler.
+export function useFakeMedia({ fakeUi = true } = {}) {
   app.commandLine.appendSwitch('use-fake-device-for-media-stream');
-  app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
+  if (fakeUi) app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
   app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 }
 
-export const evaluate = (win: BrowserWindow, code: string) => win.webContents.executeJavaScript(code);
+export const evaluate = (win: BrowserWindow, code: string, userGesture = false) =>
+  win.webContents.executeJavaScript(code, userGesture);
 
 export async function waitFor(win: BrowserWindow, label: string, code: string, timeoutMs = 15_000) {
   const deadline = Date.now() + timeoutMs;
@@ -44,6 +46,14 @@ export const inboundAudio = `(async () => {
     }
   });
   return { packets, level };
+})()`;
+
+export const rtp = (type: 'inbound-rtp' | 'outbound-rtp', slot: string) => `(async () => {
+  const reports = [];
+  (await window.call.peerConnection?.getStats())?.forEach((r) => reports.push(r));
+  const rtp = reports.find((r) => r.type === '${type}' && r.mid !== undefined && window.call.slotForMid(r.mid) === '${slot}');
+  const codec = rtp && reports.find((r) => r.id === rtp.codecId);
+  return rtp ? { ...rtp, codec: codec?.mimeType, fmtp: codec?.sdpFmtpLine, channels: codec?.channels } : null;
 })()`;
 
 export function run(main: () => Promise<void>) {

@@ -1,5 +1,6 @@
 import type { SignalData } from '../../../shared/protocol.ts';
 import { Emitter } from './emitter.ts';
+import { tuneSdp } from './sdp.ts';
 import { Signaling } from './signaling.ts';
 
 export type Slot = 'mic' | 'camera' | 'screen' | 'screenAudio';
@@ -13,12 +14,30 @@ const SLOTS = [
 ] as const satisfies readonly (readonly [Slot, 'audio' | 'video'])[];
 
 export type CallState = 'joining' | 'waiting' | 'connecting' | 'connected' | 'reconnecting' | 'closed';
+export type SlotFlags = Record<Slot, boolean>;
+export type DegradationPreference = 'maintain-framerate' | 'maintain-resolution' | 'balanced';
+
+export interface SenderOptions {
+  maxBitrateKbps?: number;
+  maxFramerate?: number;
+  degradation?: DegradationPreference;
+  /** A negotiated mimeType such as 'video/VP9'. Omit to let the browser choose. */
+  codec?: string;
+}
+
+type ControlMessage = { type: 'media'; active: SlotFlags };
 
 type CallEvents = {
   state: CallState;
   'remote-track': { slot: Slot; track: MediaStreamTrack | null };
+  'remote-media': SlotFlags;
   error: { code: string; message: string };
 };
+
+type EncodingParameters = RTCRtpEncodingParameters & { codec?: RTCRtpCodec };
+type SendParameters = RTCRtpSendParameters & { degradationPreference?: DegradationPreference };
+
+const noSlots = (): SlotFlags => ({ mic: false, camera: false, screen: false, screenAudio: false });
 
 export interface CallOptions {
   signalingUrl: string;
@@ -27,12 +46,15 @@ export interface CallOptions {
 
 export class Call extends Emitter<CallEvents> {
   state: CallState = 'joining';
+  remoteMedia = noSlots();
+  private options: CallOptions;
   private signaling: Signaling;
   private pc: RTCPeerConnection | null = null;
+  private channel: RTCDataChannel | null = null;
   private initiator = false;
   private localTracks = new Map<Slot, MediaStreamTrack | null>();
+  private senderOptions = new Map<Slot, SenderOptions>();
   private queue: Promise<void> = Promise.resolve();
-  private options: CallOptions;
 
   constructor(options: CallOptions) {
     super();
@@ -58,6 +80,17 @@ export class Call extends Emitter<CallEvents> {
   async setTrack(slot: Slot, track: MediaStreamTrack | null) {
     this.localTracks.set(slot, track);
     await this.transceiverFor(slot)?.sender.replaceTrack(track);
+    this.sendMediaState();
+  }
+
+  async configureSender(slot: Slot, options: SenderOptions) {
+    this.senderOptions.set(slot, options);
+    await this.applySenderOptions(slot);
+  }
+
+  slotForMid(mid: string): Slot | undefined {
+    const transceiver = this.pc?.getTransceivers().find((t) => t.mid === mid);
+    return transceiver && this.slotOf(transceiver);
   }
 
   hangup() {
@@ -103,7 +136,13 @@ export class Call extends Emitter<CallEvents> {
       }
     };
 
+    // Pre-agreed id on both sides, so neither has to wait for an ondatachannel announcement.
+    const channel = pc.createDataChannel('control', { negotiated: true, id: 0 });
+    channel.onopen = () => this.sendMediaState();
+    channel.onmessage = (event) => this.handleControl(JSON.parse(event.data));
+
     this.pc = pc;
+    this.channel = channel;
     return pc;
   }
 
@@ -128,6 +167,7 @@ export class Call extends Emitter<CallEvents> {
     const { description } = data;
     if (description.type === 'answer') {
       await this.pc?.setRemoteDescription(description);
+      await this.applyAllSenderOptions();
       return;
     }
     if (description.type !== 'offer') return;
@@ -145,14 +185,62 @@ export class Call extends Emitter<CallEvents> {
       if (slot) await transceiver.sender.replaceTrack(this.localTracks.get(slot) ?? null);
     }
     await this.sendDescription();
+    await this.applyAllSenderOptions();
   }
 
   private async sendDescription() {
     const pc = this.pc;
     if (!pc) return;
-    await pc.setLocalDescription();
-    const { type, sdp } = pc.localDescription!;
-    this.signaling.send({ kind: 'description', description: { type, sdp } });
+    const description =
+      pc.signalingState === 'have-remote-offer' ? await pc.createAnswer() : await pc.createOffer();
+    description.sdp = tuneSdp(description.sdp ?? '');
+    await pc.setLocalDescription(description);
+    this.signaling.send({ kind: 'description', description: { type: description.type, sdp: description.sdp } });
+  }
+
+  private async applyAllSenderOptions() {
+    for (const slot of this.senderOptions.keys()) await this.applySenderOptions(slot);
+  }
+
+  private async applySenderOptions(slot: Slot) {
+    const sender = this.transceiverFor(slot)?.sender;
+    const options = this.senderOptions.get(slot);
+    if (!sender || !options || !this.pc?.remoteDescription || this.pc.signalingState !== 'stable') return;
+
+    const params = sender.getParameters() as SendParameters;
+    const encoding = params.encodings[0] as EncodingParameters | undefined;
+    if (!encoding) return;
+
+    if (options.maxBitrateKbps) encoding.maxBitrate = options.maxBitrateKbps * 1000;
+    else delete encoding.maxBitrate;
+    if (options.maxFramerate) encoding.maxFramerate = options.maxFramerate;
+    else delete encoding.maxFramerate;
+
+    const wanted = options.codec?.toLowerCase();
+    const codec = wanted && params.codecs.find((c) => c.mimeType.toLowerCase() === wanted);
+    if (wanted && !codec) {
+      this.emit('error', { code: 'codec-unavailable', message: `${options.codec} was not negotiated` });
+    }
+    if (codec) encoding.codec = codec;
+    else delete encoding.codec;
+
+    if (options.degradation) params.degradationPreference = options.degradation;
+    await sender.setParameters(params);
+  }
+
+  private sendMediaState() {
+    if (this.channel?.readyState !== 'open') return;
+    const active = noSlots();
+    for (const [slot, track] of this.localTracks) active[slot] = track !== null;
+    const message: ControlMessage = { type: 'media', active };
+    this.channel.send(JSON.stringify(message));
+  }
+
+  private handleControl(message: ControlMessage) {
+    if (message.type === 'media') {
+      this.remoteMedia = { ...noSlots(), ...message.active };
+      this.emit('remote-media', this.remoteMedia);
+    }
   }
 
   private transceiverFor(slot: Slot) {
@@ -169,6 +257,9 @@ export class Call extends Emitter<CallEvents> {
     if (!this.pc) return;
     this.pc.close();
     this.pc = null;
+    this.channel = null;
+    this.remoteMedia = noSlots();
+    this.emit('remote-media', this.remoteMedia);
     for (const [slot] of SLOTS) this.emit('remote-track', { slot, track: null });
   }
 }

@@ -3,8 +3,12 @@
     "target": "ES2023",
     "module": "nodenext",
     "moduleResolution": "nodenext",
-    "lib": ["ES2023"],
-    "types": ["node"],
+    "lib": [
+      "ES2023"
+    ],
+    "types": [
+      "node"
+    ],
     "strict": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,
@@ -12,5 +16,9 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true
   },
-  "include": ["server", "shared"]
+  "include": [
+    "server",
+    "shared",
+    "client/src/**/*.test.ts"
+  ]
 }

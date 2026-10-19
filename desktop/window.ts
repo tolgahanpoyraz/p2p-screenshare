@@ -6,6 +6,8 @@ import {
   type MediaAccessPermissionRequest,
   type Session,
 } from 'electron';
+import { registerScreenCapture } from './capture.ts';
+import { originOf } from './origin.ts';
 
 const ALLOWED_PERMISSIONS = new Set([
   'media',
@@ -23,6 +25,8 @@ export interface MainWindowOptions {
 
 export function createMainWindow({ url, preload, show = true }: MainWindowOptions) {
   const origin = new URL(url).origin;
+  // Opaque origins (file:, data:) all serialize to 'null' and would match each other in the trust checks.
+  if (origin === 'null') throw new Error(`App URL needs an http(s) origin: ${url}`);
   const win = new BrowserWindow({
     width: 1100,
     height: 760,
@@ -32,6 +36,7 @@ export function createMainWindow({ url, preload, show = true }: MainWindowOption
   });
 
   restrictPermissions(win.webContents.session, origin);
+  registerScreenCapture(win.webContents.session, origin);
 
   win.webContents.on('will-navigate', (event, target) => {
     if (originOf(target) !== origin) event.preventDefault();
@@ -76,10 +81,3 @@ async function ensureSystemMediaAccess(types: ('audio' | 'video')[]) {
   return true;
 }
 
-function originOf(url: string) {
-  try {
-    return new URL(url).origin;
-  } catch {
-    return null;
-  }
-}

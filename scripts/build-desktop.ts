@@ -12,7 +12,7 @@ await Promise.all([
   build({ ...shared, entryPoints: ['desktop/preload.ts'], format: 'cjs', outfile: 'dist/desktop/preload.cjs' }),
   build({
     ...shared,
-    entryPoints: ['scripts/e2e/voice.ts', 'scripts/e2e/desktop.ts'],
+    entryPoints: ['scripts/e2e/voice.ts', 'scripts/e2e/desktop.ts', 'scripts/e2e/screen.ts'],
     format: 'esm',
     outdir: 'dist/e2e',
     outExtension: { '.js': '.mjs' },

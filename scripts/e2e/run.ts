@@ -2,7 +2,7 @@ import { execSync, spawn } from 'node:child_process';
 import electron from 'electron';
 import { createSignalingServer } from '../../server/server.ts';
 
-const tests = process.argv.slice(2).length ? process.argv.slice(2) : ['voice', 'desktop'];
+const tests = process.argv.slice(2).length ? process.argv.slice(2) : ['voice', 'desktop', 'screen'];
 
 execSync('vite build client --logLevel warn && node scripts/build-desktop.ts', { stdio: 'inherit' });
 
@@ -16,11 +16,17 @@ for (const test of tests) {
   console.log(test);
   const code = await new Promise<number | null>((done) => {
     const child = spawn(electron as unknown as string, [`dist/e2e/${test}.mjs`], { env, stdio: ['ignore', 'inherit', 'pipe'] });
+    let webrtcError = false;
     child.stderr.on('data', (chunk: Buffer) => {
       const text = chunk.toString();
-      if (!text.includes('Electron Security Warning')) process.stderr.write(text);
+      if (text.includes('Electron Security Warning')) return;
+      if (/ERROR:.*third_party\/webrtc/.test(text) && !text.includes('User-Initiated Abort')) webrtcError = true;
+      process.stderr.write(text);
     });
-    child.on('exit', done);
+    child.on('exit', (code) => {
+      if (webrtcError) console.error('  ✘ WebRTC logged errors');
+      done(webrtcError ? 1 : code);
+    });
   });
   if (code !== 0) failed++;
 }

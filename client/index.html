@@ -6,8 +6,16 @@
     <title>screenshare</title>
     <style>
       body { font: 14px/1.5 system-ui, sans-serif; margin: 24px; }
-      button { font: inherit; padding: 6px 12px; }
-      #log { font: 12px ui-monospace, monospace; white-space: pre-wrap; color: #666; }
+      button, select, input { font: inherit; }
+      button { padding: 6px 12px; }
+      input[type='number'] { width: 80px; }
+      section { margin-bottom: 16px; }
+      #sources { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+      #sources button { display: flex; flex-direction: column; align-items: center; width: 180px; padding: 6px; }
+      #sources img { width: 100%; }
+      #sources span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+      #remote-screen { width: 100%; max-height: 70vh; background: #000; }
+      #stats, #log { font: 12px ui-monospace, monospace; white-space: pre-wrap; color: #666; }
       [hidden] { display: none !important; }
     </style>
   </head>
@@ -26,6 +34,39 @@
       <button id="leave" disabled>Leave</button>
     </section>
 
+    <section id="screen" hidden>
+      <button id="share">Share screen…</button>
+      <button id="stop-share" disabled>Stop sharing</button>
+      <label><input type="checkbox" id="share-audio" checked /> Include system audio</label>
+      <div id="sources"></div>
+      <p>
+        <select id="preset"></select>
+        <select id="codec">
+          <option>auto</option>
+          <option>video/H264</option>
+          <option>video/VP8</option>
+          <option>video/VP9</option>
+          <option>video/AV1</option>
+        </select>
+        <select id="mode">
+          <option value="detail">detail (text)</option>
+          <option value="motion">motion (video)</option>
+        </select>
+        <input id="height" type="number" placeholder="native" /> p
+        <input id="fps" type="number" /> fps
+        <input id="bitrate" type="number" /> kbps
+      </p>
+    </section>
+
+    <section id="remote" hidden>
+      <video id="remote-screen" autoplay playsinline muted hidden></video>
+      <p>
+        <label>Voice <input type="range" id="voice-volume" min="0" max="1" step="0.05" value="1" /></label>
+        <label>Show <input type="range" id="show-volume" min="0" max="1" step="0.05" value="1" /></label>
+      </p>
+    </section>
+
+    <pre id="stats"></pre>
     <div id="log"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
