@@ -1,9 +1,3 @@
 import type { DesktopBridge } from '../../shared/desktop.ts';
 
-declare global {
-  interface Window {
-    desktop?: DesktopBridge;
-  }
-}
-
-export const desktop = window.desktop;
+export const desktop = (globalThis as { desktop?: DesktopBridge }).desktop;

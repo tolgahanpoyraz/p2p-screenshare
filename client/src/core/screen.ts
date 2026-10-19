@@ -61,7 +61,7 @@ export class ScreenShare extends Emitter<ScreenShareEvents> {
   /** On the Mac app, pass a sourceId from desktop.listScreenSources(); browsers show their own picker. */
   async start({ sourceId, audio }: { sourceId?: string; audio: boolean }) {
     const generation = ++this.generation;
-    await this.stop();
+    await this.release();
     if (desktop && sourceId) await desktop.selectScreenSource(sourceId, { audio });
 
     const stream = await navigator.mediaDevices.getDisplayMedia({
@@ -97,6 +97,11 @@ export class ScreenShare extends Emitter<ScreenShareEvents> {
   }
 
   async stop() {
+    this.generation++;
+    await this.release();
+  }
+
+  private async release() {
     if (!this.video) return;
     this.video.stop();
     this.audio?.stop();
