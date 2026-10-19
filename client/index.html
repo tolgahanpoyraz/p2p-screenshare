@@ -12,12 +12,14 @@
     </style>
   </head>
   <body>
+    <p>Running in: <strong id="env"></strong></p>
+
     <section id="lobby" hidden>
       <button id="create">New room</button>
     </section>
 
     <section id="room" hidden>
-      <p>Invite link: <a id="link"></a></p>
+      <p>Invite link: <a id="link"></a> <button id="copy">Copy</button></p>
       <p>State: <strong id="state">not joined</strong></p>
       <button id="join">Join</button>
       <label><input type="checkbox" id="mute" disabled /> Mute</label>

@@ -1,10 +1,15 @@
 import { Call, type Slot } from './core/call.ts';
 import { createRoomId, fetchConfig, openMicrophone, signalingUrl } from './core/media.ts';
+import { desktop } from './platform.ts';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const log = (text: string) => {
   $('log').textContent += `${new Date().toLocaleTimeString()}  ${text}\n`;
 };
+
+$('env').textContent = desktop
+  ? `Mac app (Electron ${desktop.versions.electron}, Chrome ${desktop.versions.chrome})`
+  : 'browser';
 
 const roomId = location.pathname.match(/^\/r\/([^/]+)$/)?.[1];
 
@@ -15,6 +20,7 @@ if (!roomId) {
   $('room').hidden = false;
   $<HTMLAnchorElement>('link').href = location.href;
   $('link').textContent = location.href;
+  $('copy').onclick = () => navigator.clipboard.writeText(location.href);
   $('join').onclick = () => join(roomId);
 }
 
