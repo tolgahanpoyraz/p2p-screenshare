@@ -38,7 +38,7 @@ start('server', 'node', ['--watch', 'server/main.ts']);
 start('vite', 'npx', ['vite', 'client', '--port', '5173', '--strictPort']);
 await waitForHttp('http://localhost:5173');
 
-const env = { ...process.env };
+const env: NodeJS.ProcessEnv = { ...process.env, APP_URL: 'http://localhost:5173' };
 delete env.ELECTRON_RUN_AS_NODE;
 start('build', 'node', ['scripts/build-desktop.ts']).on('exit', () => {
   start('app', 'npx', ['electron', 'dist/desktop/main.mjs'], env).on('exit', shutdown);

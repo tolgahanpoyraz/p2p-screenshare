@@ -4,7 +4,7 @@ import { createMainWindow } from './window.ts';
 
 app.setName('screenshare');
 
-const url = process.env.APP_URL ?? 'http://localhost:5173';
+const url = process.env.APP_URL ?? 'https://p2p-screenshare.onrender.com';
 const preload = join(import.meta.dirname, 'preload.cjs');
 
 app.whenReady().then(() => {
