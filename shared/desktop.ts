@@ -5,9 +5,24 @@ export interface ScreenSource {
   thumbnail: string;
 }
 
+export interface PushToTalkBinding {
+  kind: 'key' | 'mouse';
+  code: number;
+  label: string;
+}
+
 export interface DesktopBridge {
   platform: string;
   versions: { electron: string; chrome: string };
   listScreenSources(): Promise<ScreenSource[]>;
   selectScreenSource(id: string, options: { audio: boolean }): Promise<void>;
+  pushToTalk: {
+    hasPermission(): Promise<boolean>;
+    /** Shows the macOS Accessibility prompt; resolves with the current state (the user may grant it later). */
+    requestPermission(): Promise<boolean>;
+    /** Resolves with the next key or extra mouse button pressed anywhere, or null on Escape. */
+    captureBinding(): Promise<PushToTalkBinding | null>;
+    setBinding(binding: PushToTalkBinding | null): Promise<void>;
+    onChange(listener: (pressed: boolean) => void): () => void;
+  };
 }

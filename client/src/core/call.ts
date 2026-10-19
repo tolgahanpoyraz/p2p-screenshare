@@ -28,12 +28,18 @@ export interface SenderOptions {
   codec?: string;
 }
 
-type ControlMessage = { type: 'media'; active: SlotFlags };
+export interface VoiceState {
+  mode: 'open' | 'push-to-talk';
+  transmitting: boolean;
+}
+
+type ControlMessage = { type: 'media'; active: SlotFlags } | ({ type: 'voice' } & VoiceState);
 
 type CallEvents = {
   state: CallState;
   'remote-track': { slot: Slot; track: MediaStreamTrack | null };
   'remote-media': SlotFlags;
+  'remote-voice': VoiceState | null;
   error: { code: string; message: string };
 };
 
@@ -50,6 +56,8 @@ export interface CallOptions {
 export class Call extends Emitter<CallEvents> {
   state: CallState = 'joining';
   remoteMedia = noSlots();
+  remoteVoice: VoiceState | null = null;
+  private voice: VoiceState = { mode: 'open', transmitting: true };
   private options: CallOptions;
   private signaling: Signaling;
   private pc: RTCPeerConnection | null = null;
@@ -89,6 +97,11 @@ export class Call extends Emitter<CallEvents> {
   async configureSender(slot: Slot, options: SenderOptions) {
     this.senderOptions.set(slot, options);
     await this.applySenderOptions(slot);
+  }
+
+  setVoiceState(voice: VoiceState) {
+    this.voice = voice;
+    this.sendVoiceState();
   }
 
   slotForMid(mid: string): Slot | undefined {
@@ -141,7 +154,10 @@ export class Call extends Emitter<CallEvents> {
 
     // Pre-agreed id on both sides, so neither has to wait for an ondatachannel announcement.
     const channel = pc.createDataChannel('control', { negotiated: true, id: 0 });
-    channel.onopen = () => this.sendMediaState();
+    channel.onopen = () => {
+      this.sendMediaState();
+      this.sendVoiceState();
+    };
     channel.onmessage = (event) => this.handleControl(JSON.parse(event.data));
 
     this.pc = pc;
@@ -240,10 +256,19 @@ export class Call extends Emitter<CallEvents> {
     this.channel.send(JSON.stringify(message));
   }
 
+  private sendVoiceState() {
+    if (this.channel?.readyState !== 'open') return;
+    const message: ControlMessage = { type: 'voice', ...this.voice };
+    this.channel.send(JSON.stringify(message));
+  }
+
   private handleControl(message: ControlMessage) {
     if (message.type === 'media') {
       this.remoteMedia = { ...noSlots(), ...message.active };
       this.emit('remote-media', this.remoteMedia);
+    } else if (message.type === 'voice') {
+      this.remoteVoice = { mode: message.mode, transmitting: message.transmitting };
+      this.emit('remote-voice', this.remoteVoice);
     }
   }
 
@@ -263,7 +288,9 @@ export class Call extends Emitter<CallEvents> {
     this.pc = null;
     this.channel = null;
     this.remoteMedia = noSlots();
+    this.remoteVoice = null;
     this.emit('remote-media', this.remoteMedia);
+    this.emit('remote-voice', null);
     for (const [slot] of SLOTS) this.emit('remote-track', { slot, track: null });
   }
 }

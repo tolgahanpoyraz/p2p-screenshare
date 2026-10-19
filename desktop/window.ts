@@ -7,6 +7,7 @@ import {
   type Session,
 } from 'electron';
 import { registerScreenCapture } from './capture.ts';
+import { registerPushToTalk } from './ptt.ts';
 import { originOf } from './origin.ts';
 
 const ALLOWED_PERMISSIONS = new Set([
@@ -37,6 +38,7 @@ export function createMainWindow({ url, preload, show = true }: MainWindowOption
 
   restrictPermissions(win.webContents.session, origin);
   registerScreenCapture(win.webContents.session, origin);
+  registerPushToTalk(origin);
 
   win.webContents.on('will-navigate', (event, target) => {
     if (originOf(target) !== origin) event.preventDefault();

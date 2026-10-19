@@ -1,6 +1,6 @@
-import { desktopCapturer, ipcMain, webContents, type IpcMainInvokeEvent, type Session } from 'electron';
+import { desktopCapturer, ipcMain, webContents, type Session } from 'electron';
 import type { ScreenSource } from '../shared/desktop.ts';
-import { originOf } from './origin.ts';
+import { assertTrusted, originOf } from './origin.ts';
 
 interface Selection {
   sourceId: string;
@@ -14,12 +14,8 @@ export function registerScreenCapture(session: Session, origin: string) {
   if (registered) return;
   registered = true;
 
-  const assertTrusted = (event: IpcMainInvokeEvent) => {
-    if (originOf(event.senderFrame?.url) !== origin) throw new Error('Untrusted sender');
-  };
-
   ipcMain.handle('screen:list', async (event): Promise<ScreenSource[]> => {
-    assertTrusted(event);
+    assertTrusted(event, origin);
     const sources = await desktopCapturer.getSources({
       types: ['screen', 'window'],
       thumbnailSize: { width: 320, height: 200 },
@@ -33,7 +29,7 @@ export function registerScreenCapture(session: Session, origin: string) {
   });
 
   ipcMain.handle('screen:select', (event, sourceId: unknown, audio: unknown) => {
-    assertTrusted(event);
+    assertTrusted(event, origin);
     selections.set(event.sender.id, { sourceId: String(sourceId), audio: audio === true });
   });
 

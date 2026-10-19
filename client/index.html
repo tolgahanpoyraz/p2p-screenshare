@@ -17,6 +17,8 @@
       #remote-screen { width: 100%; max-height: 70vh; background: #000; }
       #remote-camera, #local-camera { width: 240px; background: #000; }
       #local-camera.mirrored { transform: scaleX(-1); }
+      #ptt-hold { padding: 24px 48px; touch-action: none; user-select: none; -webkit-user-select: none; }
+      #ptt-hold.held { background: #2a7; color: #fff; }
       #stats, #log { font: 12px ui-monospace, monospace; white-space: pre-wrap; color: #666; }
       [hidden] { display: none !important; }
     </style>
@@ -34,6 +36,18 @@
       <button id="join">Join</button>
       <label><input type="checkbox" id="mute" disabled /> Mute</label>
       <button id="leave" disabled>Leave</button>
+    </section>
+
+    <section id="voice" hidden>
+      <label><input type="radio" name="voice-mode" value="open" checked /> Open mic</label>
+      <label><input type="radio" name="voice-mode" value="push-to-talk" /> Push-to-talk</label>
+      <span id="ptt-desktop" hidden>
+        · Key: <strong id="ptt-key">none</strong>
+        <button id="ptt-bind">Set key…</button>
+        <button id="ptt-permission" hidden>Grant Accessibility access</button>
+      </span>
+      <p><button id="ptt-hold" hidden>Hold to talk</button></p>
+      <p>You: <strong id="voice-local">–</strong> · Them: <strong id="voice-remote">–</strong></p>
     </section>
 
     <section id="screen" hidden>

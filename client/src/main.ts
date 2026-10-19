@@ -1,9 +1,12 @@
 import { Call, type Slot } from './core/call.ts';
 import { Camera } from './core/camera.ts';
+import { Voice } from './core/ptt.ts';
 import { createRoomId, fetchConfig, openMicrophone, signalingUrl } from './core/media.ts';
 import { ScreenShare, screenPresets, type ScreenQuality, type VideoCodec } from './core/screen.ts';
 import { StatsSampler, type ConnectionStats } from './core/stats.ts';
 import { desktop } from './platform.ts';
+import type { PushToTalkBinding } from '../../shared/desktop.ts';
+import type { VoiceState } from './core/call.ts';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const log = (text: string) => {
@@ -36,8 +39,10 @@ async function join(roomId: string) {
   const call = new Call({ signalingUrl: signalingUrl(base, roomId), iceServers: config.iceServers });
   const screen = new ScreenShare(call);
   const camera = new Camera(call);
-  Object.assign(window, { call, screenShare: screen, camera });
+  const voice = new Voice(call);
+  Object.assign(window, { call, screenShare: screen, camera, voice });
   await call.setTrack('mic', mic);
+  voice.setMic(mic);
 
   call.on('state', (state) => {
     $('state').textContent = state;
@@ -45,20 +50,19 @@ async function join(roomId: string) {
   });
   call.on('error', ({ code, message }) => log(`error [${code}] ${message}`));
 
-  setupControls(call, mic);
+  setupControls(call, mic, voice);
+  setupVoice(call, voice);
   setupRemoteMedia(call);
   if (ScreenShare.supported) setupScreenShare(screen);
   setupCamera(camera);
   startStats(new StatsSampler(call));
 }
 
-function setupControls(call: Call, mic: MediaStreamTrack) {
+function setupControls(call: Call, mic: MediaStreamTrack, voice: Voice) {
   const mute = $<HTMLInputElement>('mute');
   const leave = $<HTMLButtonElement>('leave');
   mute.disabled = leave.disabled = false;
-  mute.onchange = () => {
-    mic.enabled = !mute.checked;
-  };
+  mute.onchange = () => voice.setMuted(mute.checked);
   leave.onclick = () => {
     call.hangup();
     mic.stop();
@@ -172,6 +176,79 @@ function setupScreenShare(screen: ScreenShare) {
     apply();
   };
   for (const field of Object.values(fields)) field.onchange = apply;
+}
+
+const describeVoice = (state: VoiceState | null) =>
+  !state ? '–' : `${state.mode === 'open' ? 'open mic' : 'push-to-talk'}, ${state.transmitting ? 'transmitting' : 'silent'}`;
+
+function setupVoice(call: Call, voice: Voice) {
+  $('voice').hidden = false;
+  const hold = $<HTMLButtonElement>('ptt-hold');
+  const radios = document.querySelectorAll<HTMLInputElement>('input[name="voice-mode"]');
+
+  for (const radio of radios) {
+    radio.onchange = () => {
+      voice.setMode(radio.value as Voice['mode']);
+      hold.hidden = voice.mode !== 'push-to-talk';
+    };
+  }
+
+  hold.onpointerdown = (event) => {
+    hold.setPointerCapture(event.pointerId);
+    hold.classList.add('held');
+    voice.press();
+  };
+  const release = () => {
+    hold.classList.remove('held');
+    voice.release();
+  };
+  hold.onpointerup = release;
+  hold.onpointercancel = release;
+
+  voice.on('change', (state) => ($('voice-local').textContent = describeVoice(state)));
+  call.on('remote-voice', (state) => ($('voice-remote').textContent = describeVoice(state)));
+  $('voice-local').textContent = describeVoice({ mode: voice.mode, transmitting: voice.transmitting });
+
+  if (desktop) setupDesktopPushToTalk();
+}
+
+function setupDesktopPushToTalk() {
+  const ptt = desktop!.pushToTalk;
+  $('ptt-desktop').hidden = false;
+  const label = $('ptt-key');
+  const bind = $<HTMLButtonElement>('ptt-bind');
+  const permission = $<HTMLButtonElement>('ptt-permission');
+
+  const apply = async (binding: PushToTalkBinding | null) => {
+    try {
+      await ptt.setBinding(binding);
+      label.textContent = binding?.label ?? 'none';
+    } catch (error) {
+      log(`push-to-talk: ${error}`);
+      permission.hidden = await ptt.hasPermission();
+    }
+  };
+
+  const saved = localStorage.getItem('ptt-binding');
+  if (saved) apply(JSON.parse(saved));
+
+  permission.onclick = async () => {
+    permission.hidden = await ptt.requestPermission();
+    log('grant access in System Settings, then try again (restart the app if it still fails)');
+  };
+
+  bind.onclick = async () => {
+    if (!(await ptt.hasPermission())) {
+      permission.hidden = false;
+      return;
+    }
+    bind.textContent = 'Press a key or mouse button… (Esc to cancel)';
+    const binding = await ptt.captureBinding();
+    bind.textContent = 'Set key…';
+    if (!binding) return;
+    localStorage.setItem('ptt-binding', JSON.stringify(binding));
+    await apply(binding);
+  };
 }
 
 function setupCamera(camera: Camera) {
