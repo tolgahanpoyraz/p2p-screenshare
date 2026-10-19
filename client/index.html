@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>screenshare</title>
+    <style>
+      body { font: 14px/1.5 system-ui, sans-serif; margin: 24px; }
+      button { font: inherit; padding: 6px 12px; }
+      #log { font: 12px ui-monospace, monospace; white-space: pre-wrap; color: #666; }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <section id="lobby" hidden>
+      <button id="create">New room</button>
+    </section>
+
+    <section id="room" hidden>
+      <p>Invite link: <a id="link"></a></p>
+      <p>State: <strong id="state">not joined</strong></p>
+      <button id="join">Join</button>
+      <label><input type="checkbox" id="mute" disabled /> Mute</label>
+      <button id="leave" disabled>Leave</button>
+    </section>
+
+    <div id="log"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

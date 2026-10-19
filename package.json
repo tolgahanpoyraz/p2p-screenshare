@@ -18,6 +18,9 @@
   "scripts": {
     "server": "node --watch server/main.ts",
     "test:server": "node --test 'server/**/*.test.ts'",
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p . && tsc -p client",
+    "dev": "vite client",
+    "build": "vite build client",
+    "e2e:voice": "esbuild scripts/e2e-voice.ts --bundle --platform=node --format=esm --external:electron --outfile=dist/e2e-voice.mjs --log-level=warning && env -u ELECTRON_RUN_AS_NODE electron dist/e2e-voice.mjs"
   }
 }
