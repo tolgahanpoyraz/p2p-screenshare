@@ -1,17 +1,15 @@
-import { Call, type Slot } from './core/call.ts';
-import { Camera } from './core/camera.ts';
-import { Voice } from './core/ptt.ts';
-import { createRoomId, fetchConfig, openMicrophone, signalingUrl } from './core/media.ts';
-import { ScreenShare, screenPresets, type ScreenQuality, type VideoCodec } from './core/screen.ts';
-import { StatsSampler, type ConnectionStats } from './core/stats.ts';
-import { desktop } from './platform.ts';
-import type { PushToTalkBinding } from '../../shared/desktop.ts';
 import type { VoiceState } from './core/call.ts';
+import { createRoomId } from './core/media.ts';
+import { screenPresets, type ScreenQuality, type VideoCodec } from './core/screen.ts';
+import { Session } from './core/session.ts';
+import { SettingsStore } from './core/settings.ts';
+import type { ConnectionStats } from './core/stats.ts';
+import { $, log } from './dev/dom.ts';
+import { setupSettingsPanel } from './dev/settings-panel.ts';
+import { desktop } from './platform.ts';
 
-const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
-const log = (text: string) => {
-  $('log').textContent += `${new Date().toLocaleTimeString()}  ${text}\n`;
-};
+const settings = new SettingsStore();
+setupSettingsPanel(settings);
 
 $('env').textContent = desktop
   ? `Mac app (Electron ${desktop.versions.electron}, Chrome ${desktop.versions.chrome})`
@@ -27,113 +25,116 @@ if (!roomId) {
   $<HTMLAnchorElement>('link').href = location.href;
   $('link').textContent = location.href;
   $('copy').onclick = () => navigator.clipboard.writeText(location.href);
-  $('join').onclick = () => join(roomId);
+  $('join').onclick = () => join(roomId).catch((error) => log(`join failed: ${error}`));
 }
 
 async function join(roomId: string) {
   $<HTMLButtonElement>('join').disabled = true;
-  const base = location.origin;
-  const [config, mic] = await Promise.all([fetchConfig(base), openMicrophone()]);
-  log(`mic: ${mic.label}`);
+  const session = await Session.join({ baseUrl: location.origin, roomId, settings });
+  Object.assign(window, {
+    session,
+    call: session.call,
+    voice: session.voice,
+    camera: session.camera,
+    screenShare: session.screen,
+  });
+  log(`mic: ${session.mic?.label}`);
 
-  const call = new Call({ signalingUrl: signalingUrl(base, roomId), iceServers: config.iceServers });
-  const screen = new ScreenShare(call);
-  const camera = new Camera(call);
-  const voice = new Voice(call);
-  Object.assign(window, { call, screenShare: screen, camera, voice });
-  await call.setTrack('mic', mic);
-  voice.setMic(mic);
-
-  call.on('state', (state) => {
+  session.call.on('state', (state) => {
     $('state').textContent = state;
     log(`state → ${state}`);
   });
-  call.on('error', ({ code, message }) => log(`error [${code}] ${message}`));
+  session.on('error', ({ code, message }) => log(`error [${code}] ${message}`));
 
-  setupControls(call, mic, voice);
-  setupVoice(call, voice);
-  setupRemoteMedia(call);
-  if (ScreenShare.supported) setupScreenShare(screen);
-  setupCamera(camera);
-  startStats(new StatsSampler(call));
+  $('call').hidden = false;
+  setupControls(session);
+  setupVoice(session);
+  setupRemoteVideo(session);
+  setupScreenShare(session);
+  setupCamera(session);
+  setInterval(async () => {
+    $('stats').textContent = format(await session.stats.sample());
+  }, 1000);
 }
 
-function setupControls(call: Call, mic: MediaStreamTrack, voice: Voice) {
+function setupControls(session: Session) {
   const mute = $<HTMLInputElement>('mute');
   const leave = $<HTMLButtonElement>('leave');
   mute.disabled = leave.disabled = false;
-  mute.onchange = () => voice.setMuted(mute.checked);
+  mute.onchange = () => session.voice.setMuted(mute.checked);
   leave.onclick = () => {
-    call.hangup();
-    mic.stop();
+    session.leave();
     leave.disabled = mute.disabled = true;
+    $('call').hidden = true;
   };
 }
 
-function setupRemoteMedia(call: Call) {
-  $('remote').hidden = false;
-  const video = $<HTMLVideoElement>('remote-screen');
-  const cameraVideo = $<HTMLVideoElement>('remote-camera');
-  const volumes: Partial<Record<Slot, HTMLInputElement>> = {
-    mic: $('voice-volume'),
-    screenAudio: $('show-volume'),
+const describeVoice = (state: VoiceState | null) =>
+  !state
+    ? '–'
+    : `${state.mode === 'open' ? 'open mic' : 'push-to-talk'}, ${state.transmitting ? 'transmitting' : 'silent'}`;
+
+function setupVoice({ voice, call }: Session) {
+  const hold = $<HTMLButtonElement>('ptt-hold');
+  const showHold = () => (hold.hidden = voice.mode !== 'push-to-talk');
+  showHold();
+
+  hold.onpointerdown = (event) => {
+    hold.setPointerCapture(event.pointerId);
+    hold.classList.add('held');
+    voice.press();
   };
-  const players = new Map<Slot, HTMLAudioElement>();
+  const release = () => {
+    hold.classList.remove('held');
+    voice.release();
+  };
+  hold.onpointerup = release;
+  hold.onpointercancel = release;
 
-  for (const [slot, input] of Object.entries(volumes)) {
-    input.oninput = () => {
-      const player = players.get(slot as Slot);
-      if (player) player.volume = Number(input.value);
-    };
-  }
+  $('voice-local').textContent = describeVoice({ mode: voice.mode, transmitting: voice.transmitting });
+  voice.on('change', (state) => {
+    $('voice-local').textContent = describeVoice(state);
+    showHold();
+  });
+  call.on('remote-voice', (state) => ($('voice-remote').textContent = describeVoice(state)));
+}
 
+function setupRemoteVideo({ call }: Session) {
+  const screen = $<HTMLVideoElement>('remote-screen');
+  const camera = $<HTMLVideoElement>('remote-camera');
   call.on('remote-track', ({ slot, track }) => {
-    if (slot === 'screen' || slot === 'camera') {
-      (slot === 'screen' ? video : cameraVideo).srcObject = track && new MediaStream([track]);
-      return;
-    }
-    const volume = volumes[slot];
-    if (!volume) return;
-    players.get(slot)?.remove();
-    players.delete(slot);
-    if (!track) return;
-    // Chrome only pulls remote WebRTC audio when it's attached to a media element.
-    const player = Object.assign(document.createElement('audio'), { autoplay: true });
-    player.srcObject = new MediaStream([track]);
-    player.volume = Number(volume.value);
-    players.set(slot, document.body.appendChild(player));
+    if (slot === 'screen') screen.srcObject = track && new MediaStream([track]);
+    if (slot === 'camera') camera.srcObject = track && new MediaStream([track]);
   });
-
   call.on('remote-media', (active) => {
-    video.hidden = !active.screen;
-    cameraVideo.hidden = !active.camera;
-    log(`remote media: ${Object.entries(active).filter(([, on]) => on).map(([slot]) => slot).join(', ') || 'none'}`);
+    screen.hidden = !active.screen;
+    camera.hidden = !active.camera;
   });
 }
 
-function setupScreenShare(screen: ScreenShare) {
-  $('screen').hidden = false;
+function setupScreenShare({ screen }: Session) {
   const share = $<HTMLButtonElement>('share');
   const stop = $<HTMLButtonElement>('stop-share');
   const withAudio = $<HTMLInputElement>('share-audio');
   const sources = $('sources');
+  share.disabled = !navigator.mediaDevices.getDisplayMedia;
+
+  withAudio.checked = settings.value.shareSystemAudio;
+  withAudio.onchange = () => settings.update({ shareSystemAudio: withAudio.checked });
+
+  const start = (sourceId?: string) =>
+    screen.start({ sourceId, audio: withAudio.checked }).catch((error) => log(`share failed: ${error}`));
 
   share.onclick = async () => {
-    if (!desktop) {
-      await screen.start({ audio: withAudio.checked }).catch((error) => log(`share failed: ${error}`));
-      return;
-    }
+    if (!desktop) return start();
     sources.replaceChildren();
     for (const source of await desktop.listScreenSources()) {
       const button = document.createElement('button');
-      button.dataset.sourceId = source.id;
       button.innerHTML = `<img src="${source.thumbnail}" alt=""><span></span>`;
       button.querySelector('span')!.textContent = source.name;
-      button.onclick = async () => {
+      button.onclick = () => {
         sources.replaceChildren();
-        await screen
-          .start({ sourceId: source.id, audio: withAudio.checked })
-          .catch((error) => log(`share failed: ${error}`));
+        start(source.id);
       };
       sources.append(button);
     }
@@ -152,7 +153,7 @@ function setupScreenShare(screen: ScreenShare) {
     fps: $<HTMLInputElement>('fps'),
     bitrate: $<HTMLInputElement>('bitrate'),
   };
-  preset.append(...Object.keys(screenPresets).map((name) => new Option(name, name, false, name === '1080p30')));
+  preset.append(new Option('custom', ''), ...Object.keys(screenPresets).map((name) => new Option(name, name)));
 
   const show = (quality: ScreenQuality) => {
     fields.codec.value = quality.codec;
@@ -160,6 +161,8 @@ function setupScreenShare(screen: ScreenShare) {
     fields.height.value = quality.height ? String(quality.height) : '';
     fields.fps.value = String(quality.frameRate);
     fields.bitrate.value = String(quality.maxBitrateKbps);
+    const match = Object.entries(screenPresets).find(([, p]) => JSON.stringify(p) === JSON.stringify(quality));
+    preset.value = match?.[0] ?? '';
   };
   const read = (): ScreenQuality => ({
     codec: fields.codec.value as VideoCodec,
@@ -168,122 +171,31 @@ function setupScreenShare(screen: ScreenShare) {
     frameRate: Number(fields.fps.value),
     maxBitrateKbps: Number(fields.bitrate.value),
   });
-  const apply = () => screen.setQuality(read()).catch((error) => log(`quality: ${error}`));
 
-  show(screen.quality);
+  show(settings.value.screen);
   preset.onchange = () => {
-    show(screenPresets[preset.value as keyof typeof screenPresets]);
-    apply();
+    const chosen = screenPresets[preset.value as keyof typeof screenPresets];
+    if (chosen) settings.update({ screen: chosen });
   };
-  for (const field of Object.values(fields)) field.onchange = apply;
+  for (const field of Object.values(fields)) field.onchange = () => settings.update({ screen: read() });
+  settings.on('change', ({ changed }) => {
+    if (changed.includes('screen')) show(settings.value.screen);
+  });
 }
 
-const describeVoice = (state: VoiceState | null) =>
-  !state ? '–' : `${state.mode === 'open' ? 'open mic' : 'push-to-talk'}, ${state.transmitting ? 'transmitting' : 'silent'}`;
-
-function setupVoice(call: Call, voice: Voice) {
-  $('voice').hidden = false;
-  const hold = $<HTMLButtonElement>('ptt-hold');
-  const radios = document.querySelectorAll<HTMLInputElement>('input[name="voice-mode"]');
-
-  for (const radio of radios) {
-    radio.onchange = () => {
-      voice.setMode(radio.value as Voice['mode']);
-      hold.hidden = voice.mode !== 'push-to-talk';
-    };
-  }
-
-  hold.onpointerdown = (event) => {
-    hold.setPointerCapture(event.pointerId);
-    hold.classList.add('held');
-    voice.press();
-  };
-  const release = () => {
-    hold.classList.remove('held');
-    voice.release();
-  };
-  hold.onpointerup = release;
-  hold.onpointercancel = release;
-
-  voice.on('change', (state) => ($('voice-local').textContent = describeVoice(state)));
-  call.on('remote-voice', (state) => ($('voice-remote').textContent = describeVoice(state)));
-  $('voice-local').textContent = describeVoice({ mode: voice.mode, transmitting: voice.transmitting });
-
-  if (desktop) setupDesktopPushToTalk();
-}
-
-function setupDesktopPushToTalk() {
-  const ptt = desktop!.pushToTalk;
-  $('ptt-desktop').hidden = false;
-  const label = $('ptt-key');
-  const bind = $<HTMLButtonElement>('ptt-bind');
-  const permission = $<HTMLButtonElement>('ptt-permission');
-
-  const apply = async (binding: PushToTalkBinding | null) => {
-    try {
-      await ptt.setBinding(binding);
-      label.textContent = binding?.label ?? 'none';
-    } catch (error) {
-      log(`push-to-talk: ${error}`);
-      permission.hidden = await ptt.hasPermission();
-    }
-  };
-
-  const saved = localStorage.getItem('ptt-binding');
-  if (saved) apply(JSON.parse(saved));
-
-  permission.onclick = async () => {
-    permission.hidden = await ptt.requestPermission();
-    log('grant access in System Settings, then try again (restart the app if it still fails)');
-  };
-
-  bind.onclick = async () => {
-    if (!(await ptt.hasPermission())) {
-      permission.hidden = false;
-      return;
-    }
-    bind.textContent = 'Press a key or mouse button… (Esc to cancel)';
-    const binding = await ptt.captureBinding();
-    bind.textContent = 'Set key…';
-    if (!binding) return;
-    localStorage.setItem('ptt-binding', JSON.stringify(binding));
-    await apply(binding);
-  };
-}
-
-function setupCamera(camera: Camera) {
-  $('camera').hidden = false;
+function setupCamera({ camera }: Session) {
   const toggle = $<HTMLButtonElement>('camera-toggle');
   const switcher = $<HTMLButtonElement>('camera-switch');
-  const devices = $<HTMLSelectElement>('camera-device');
   const preview = $<HTMLVideoElement>('local-camera');
-
-  const listDevices = async () => {
-    const cameras = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput');
-    devices.replaceChildren(...cameras.map((c, i) => new Option(c.label || `Camera ${i + 1}`, c.deviceId)));
-    devices.value = camera.track?.getSettings().deviceId ?? '';
-  };
-
-  toggle.onclick = () =>
-    (camera.active ? camera.stop() : camera.start()).catch((error) => log(`camera: ${error}`));
+  toggle.onclick = () => (camera.active ? camera.stop() : camera.start()).catch((error) => log(`camera: ${error}`));
   switcher.onclick = () => camera.switchCamera().catch((error) => log(`camera: ${error}`));
-  devices.onchange = () => camera.start({ deviceId: devices.value }).catch((error) => log(`camera: ${error}`));
-
-  camera.on('change', async ({ active }) => {
+  camera.on('change', ({ active }) => {
     toggle.textContent = active ? 'Camera off' : 'Camera on';
     switcher.disabled = !active;
     preview.hidden = !active;
     preview.srcObject = camera.track && new MediaStream([camera.track]);
     preview.classList.toggle('mirrored', camera.track?.getSettings().facingMode !== 'environment');
-    await listDevices();
   });
-  listDevices();
-}
-
-function startStats(sampler: StatsSampler) {
-  setInterval(async () => {
-    $('stats').textContent = format(await sampler.sample());
-  }, 1000);
 }
 
 function format(stats: ConnectionStats | null) {

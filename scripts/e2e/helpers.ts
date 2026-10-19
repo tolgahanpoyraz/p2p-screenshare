@@ -1,4 +1,14 @@
 import { app, BrowserWindow } from 'electron';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+// A fresh profile per run, so localStorage from tests never reaches the real app (or other runs).
+app.setPath('userData', mkdtempSync(join(tmpdir(), 'screenshare-e2e-')));
+// Electron quits when the last window closes; tests open and close windows freely.
+app.on('window-all-closed', () => {});
+
+export const COMPLETE_MARKER = '__e2e_complete__';
 
 export const base = process.env.BASE_URL ?? 'http://localhost:5173';
 
@@ -59,7 +69,10 @@ export const rtp = (type: 'inbound-rtp' | 'outbound-rtp', slot: string) => `(asy
 export function run(main: () => Promise<void>) {
   app.whenReady().then(() =>
     main().then(
-      () => app.exit(0),
+      () => {
+        console.log(COMPLETE_MARKER);
+        app.exit(0);
+      },
       (error) => {
         console.error(`  ✘ ${error.message}`);
         app.exit(1);

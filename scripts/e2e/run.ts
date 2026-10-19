@@ -2,7 +2,7 @@ import { execSync, spawn } from 'node:child_process';
 import electron from 'electron';
 import { createSignalingServer } from '../../server/server.ts';
 
-const tests = process.argv.slice(2).length ? process.argv.slice(2) : ['voice', 'desktop', 'screen', 'camera', 'ptt'];
+const tests = process.argv.slice(2).length ? process.argv.slice(2) : ['voice', 'desktop', 'screen', 'camera', 'ptt', 'settings'];
 
 execSync('vite build client --logLevel warn && node scripts/build-desktop.ts', { stdio: 'inherit' });
 
@@ -15,8 +15,14 @@ let failed = 0;
 for (const test of tests) {
   console.log(test);
   const code = await new Promise<number | null>((done) => {
-    const child = spawn(electron as unknown as string, [`dist/e2e/${test}.mjs`], { env, stdio: ['ignore', 'inherit', 'pipe'] });
+    const child = spawn(electron as unknown as string, [`dist/e2e/${test}.mjs`], { env, stdio: ['ignore', 'pipe', 'pipe'] });
     let webrtcError = false;
+    let completed = false;
+    child.stdout.on('data', (chunk: Buffer) => {
+      const text = chunk.toString();
+      if (text.includes('__e2e_complete__')) completed = true;
+      process.stdout.write(text.replace(/__e2e_complete__\n?/, ''));
+    });
     child.stderr.on('data', (chunk: Buffer) => {
       const text = chunk.toString();
       if (text.includes('Electron Security Warning')) return;
@@ -25,7 +31,8 @@ for (const test of tests) {
     });
     child.on('exit', (code) => {
       if (webrtcError) console.error('  ✘ WebRTC logged errors');
-      done(webrtcError ? 1 : code);
+      if (!completed) console.error('  ✘ exited before completing');
+      done(webrtcError || !completed ? 1 : code);
     });
   });
   if (code !== 0) failed++;

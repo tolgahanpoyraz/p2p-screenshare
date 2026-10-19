@@ -9,16 +9,18 @@
       button, select, input { font: inherit; }
       button { padding: 6px 12px; }
       input[type='number'] { width: 80px; }
-      section { margin-bottom: 16px; }
+      section, fieldset { margin-bottom: 16px; }
+      fieldset { border: 1px solid #ccc; border-radius: 6px; }
       #sources { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
       #sources button { display: flex; flex-direction: column; align-items: center; width: 180px; padding: 6px; }
       #sources img { width: 100%; }
       #sources span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
       #remote-screen { width: 100%; max-height: 70vh; background: #000; }
-      #remote-camera, #local-camera { width: 240px; background: #000; }
-      #local-camera.mirrored { transform: scaleX(-1); }
+      #remote-camera, #local-camera, #camera-preview { width: 240px; background: #000; }
+      .mirrored { transform: scaleX(-1); }
       #ptt-hold { padding: 24px 48px; touch-action: none; user-select: none; -webkit-user-select: none; }
-      #ptt-hold.held { background: #2a7; color: #fff; }
+      #ptt-hold.held, .on { background: #2a7; color: #fff; }
+      meter { width: 200px; }
       #stats, #log { font: 12px ui-monospace, monospace; white-space: pre-wrap; color: #666; }
       [hidden] { display: none !important; }
     </style>
@@ -38,22 +40,15 @@
       <button id="leave" disabled>Leave</button>
     </section>
 
-    <section id="voice" hidden>
-      <label><input type="radio" name="voice-mode" value="open" checked /> Open mic</label>
-      <label><input type="radio" name="voice-mode" value="push-to-talk" /> Push-to-talk</label>
-      <span id="ptt-desktop" hidden>
-        · Key: <strong id="ptt-key">none</strong>
-        <button id="ptt-bind">Set key…</button>
-        <button id="ptt-permission" hidden>Grant Accessibility access</button>
-      </span>
+    <section id="call" hidden>
       <p><button id="ptt-hold" hidden>Hold to talk</button></p>
       <p>You: <strong id="voice-local">–</strong> · Them: <strong id="voice-remote">–</strong></p>
-    </section>
 
-    <section id="screen" hidden>
-      <button id="share">Share screen…</button>
-      <button id="stop-share" disabled>Stop sharing</button>
-      <label><input type="checkbox" id="share-audio" checked /> Include system audio</label>
+      <p>
+        <button id="share">Share screen…</button>
+        <button id="stop-share" disabled>Stop sharing</button>
+        <label><input type="checkbox" id="share-audio" /> Include system audio</label>
+      </p>
       <div id="sources"></div>
       <p>
         <select id="preset"></select>
@@ -72,25 +67,69 @@
         <input id="fps" type="number" /> fps
         <input id="bitrate" type="number" /> kbps
       </p>
-    </section>
 
-    <section id="camera" hidden>
-      <button id="camera-toggle">Camera on</button>
-      <button id="camera-switch" disabled>Switch camera</button>
-      <select id="camera-device"></select>
-      <div><video id="local-camera" autoplay playsinline muted hidden></video></div>
-    </section>
+      <p>
+        <button id="camera-toggle">Camera on</button>
+        <button id="camera-switch" disabled>Switch camera</button>
+      </p>
+      <video id="local-camera" class="mirrored" autoplay playsinline muted hidden></video>
 
-    <section id="remote" hidden>
       <video id="remote-screen" autoplay playsinline muted hidden></video>
       <video id="remote-camera" autoplay playsinline muted hidden></video>
-      <p>
-        <label>Voice <input type="range" id="voice-volume" min="0" max="1" step="0.05" value="1" /></label>
-        <label>Show <input type="range" id="show-volume" min="0" max="1" step="0.05" value="1" /></label>
-      </p>
+      <pre id="stats"></pre>
     </section>
 
-    <pre id="stats"></pre>
+    <details id="settings">
+      <summary>Settings</summary>
+
+      <fieldset>
+        <legend>Microphone</legend>
+        <select id="set-mic"></select>
+        <label><input type="checkbox" id="set-echo" /> Echo cancellation</label>
+        <label><input type="checkbox" id="set-noise" /> Noise suppression</label>
+        <label><input type="checkbox" id="set-gain" /> Auto gain</label>
+        <p>
+          <button id="mic-test">Test microphone</button>
+          <meter id="mic-level" min="0" max="1" value="0"></meter>
+          <button id="mic-record" disabled>Record 3 s and play back</button>
+        </p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Speaker</legend>
+        <select id="set-speaker"></select>
+        <button id="speaker-test">Play test tone</button>
+        <p>
+          <label>Voice <input type="range" id="set-voice-volume" min="0" max="1" step="0.05" /></label>
+          <label>Show <input type="range" id="set-show-volume" min="0" max="1" step="0.05" /></label>
+        </p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Camera</legend>
+        <select id="set-camera"></select>
+        <input id="set-camera-height" type="number" /> p
+        <input id="set-camera-fps" type="number" /> fps
+        <input id="set-camera-bitrate" type="number" /> kbps
+        <p><button id="camera-test">Preview camera</button></p>
+        <video id="camera-preview" class="mirrored" autoplay playsinline muted hidden></video>
+      </fieldset>
+
+      <fieldset>
+        <legend>Push-to-talk</legend>
+        <label><input type="radio" name="voice-mode" value="open" /> Open mic</label>
+        <label><input type="radio" name="voice-mode" value="push-to-talk" /> Push-to-talk</label>
+        <label>Release delay <input type="number" id="set-release" min="0" max="2000" step="50" /> ms</label>
+        <p id="ptt-desktop" hidden>
+          Key: <strong id="ptt-key">none</strong>
+          <button id="ptt-bind">Set key…</button>
+          <button id="ptt-clear">Clear</button>
+          <button id="ptt-permission" hidden>Grant Accessibility access</button>
+          <span id="ptt-indicator">released</span>
+        </p>
+      </fieldset>
+    </details>
+
     <div id="log"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
