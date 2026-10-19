@@ -197,6 +197,7 @@ const en = {
   pressAKey: 'Press a key or mouse button… Esc to cancel',
   keyWarning: (key: string) =>
     `Heads up: using “${key}” in other apps will also open your mic. A mouse side button or an unused key like F13 works better.`,
+  pageKeyNote: 'In the browser the talk key works while this tab is in front. The Mac app hears it everywhere.',
   pressed: 'Pressed',
   released: 'Released',
   tryItNow: '· try it now',
@@ -417,6 +418,7 @@ const tr: Messages = {
   pressAKey: 'Bir tuşa ya da fare düğmesine bas… İptal için Esc',
   keyWarning: (key: string) =>
     `Dikkat: başka uygulamalarda “${key}” tuşunu kullanmak da mikrofonunu açar. Farenin yan düğmesi ya da F13 gibi kullanılmayan bir tuş daha iyi olur.`,
+  pageKeyNote: 'Tarayıcıda konuşma tuşu yalnızca bu sekme öndeyken çalışır. Mac uygulaması her yerde duyar.',
   pressed: 'Basılı',
   released: 'Bırakıldı',
   tryItNow: '· şimdi dene',

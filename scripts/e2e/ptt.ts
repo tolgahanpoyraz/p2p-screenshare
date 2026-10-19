@@ -63,4 +63,11 @@ run(async () => {
   await waitFor(mac, 'tablet hold-to-talk reaches the mac', `call.remoteVoice.transmitting`);
   await evaluate(tablet, `voice.release()`);
   await waitFor(mac, 'and stops after release', `!call.remoteVoice.transmitting`);
+
+  const shift = (type: string) => `window.dispatchEvent(new KeyboardEvent('${type}', { code: 'ShiftLeft', key: 'Shift' })); true`;
+  await evaluate(tablet, `settings.update({ voiceMode: 'push-to-talk' }); true`);
+  await evaluate(tablet, shift('keydown'));
+  await waitFor(mac, 'Shift in the web app talks while the tab is focused', `call.remoteVoice.transmitting`);
+  await evaluate(tablet, shift('keyup'));
+  await waitFor(mac, 'and letting go of Shift stops', `!call.remoteVoice.transmitting`);
 });

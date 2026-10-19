@@ -3,8 +3,9 @@ import type { ScreenSource } from '../../../../shared/desktop.ts';
 import type { Session } from '../../core/session.ts';
 import type { SettingsStore } from '../../core/settings.ts';
 import { Icon } from '../controls.tsx';
-import { useEscape, useSettings, useSize, useSubscribe } from '../hooks.ts';
+import { useEscape, useMediaQuery, useSettings, useSize, useSubscribe } from '../hooks.ts';
 import { people } from '../identity.ts';
+import { usePageHotkey } from '../page-hotkey.ts';
 import { isPermissionError, PermissionCard, type BlockedDevice } from '../permission.tsx';
 import { t } from '../i18n.ts';
 import { toast } from '../toasts.tsx';
@@ -52,6 +53,8 @@ export function Room({ session, store, roomId, layout, settingsOpen, onOpenSetti
   const [pinchHint, setPinchHint] = useState(() => !desktop && !storageFlag(PINCH_HINT_KEY));
   const [stageRef, stage] = useSize<HTMLDivElement>();
 
+  const keyHeld = usePageHotkey(voice, settings.pushToTalkBinding, !desktop && voice.mode === 'push-to-talk');
+  const hasMouse = useMediaQuery('(pointer: fine)');
   const connected = state === 'connected' || state === 'reconnecting';
   const { you, them } = people(settings, remoteProfile);
   const theyLeft = useTheyLeft(state);
@@ -155,6 +158,7 @@ export function Room({ session, store, roomId, layout, settingsOpen, onOpenSetti
     voice,
     mode: voice.mode,
     transmitting: voice.transmitting,
+    keyHeld,
     muted: voice.muted,
     mic: session.mic,
     bindingLabel: settings.pushToTalkBinding?.label ?? null,
@@ -227,7 +231,13 @@ export function Room({ session, store, roomId, layout, settingsOpen, onOpenSetti
         remoteVoice={remoteVoice}
         theirMic={remoteTracks.get('mic')}
         voice={{ mode: voice.mode, transmitting: voice.transmitting }}
-        holdHint={desktop ? t.holdKey(settings.pushToTalkBinding?.label ?? t.aKey) : t.holdToTalkHint}
+        holdHint={
+          (desktop || hasMouse) && settings.pushToTalkBinding
+            ? t.holdKey(settings.pushToTalkBinding.label)
+            : desktop
+              ? t.holdKey(t.aKey)
+              : t.holdToTalkHint
+        }
         maxWidth={stage.width - inset.right - 32}
       />
 

@@ -10,6 +10,7 @@ import { useEscape, useLevel, useSubscribe } from '../hooks.ts';
 import { people } from '../identity.ts';
 import { deviceOptions, usePreviewCamera, usePreviewMic } from '../media-hooks.ts';
 import { isPermissionError } from '../permission.tsx';
+import { bindingFromEvent } from '../page-hotkey.ts';
 import { presetOptions, presetValue } from '../presets.ts';
 import { t } from '../i18n.ts';
 import { toast } from '../toasts.tsx';
@@ -241,7 +242,8 @@ export function PushToTalkSection({ store, settings }: SectionProps) {
         step={50}
         onChange={(releaseDelayMs) => store.update({ releaseDelayMs })}
       />
-      {desktop ? <TalkKey store={store} settings={settings} /> : !ptt && <p class="hint">{t.tabletPttNote}</p>}
+      {desktop ? <TalkKey store={store} settings={settings} /> : <PageTalkKey store={store} settings={settings} />}
+      {!desktop && !ptt && <p class="hint">{t.tabletPttNote}</p>}
     </>
   );
 }
@@ -328,6 +330,54 @@ function TalkKey({ store, settings }: { store: SettingsStore; settings: Settings
         </div>
       </div>
     </>
+  );
+}
+
+function PageTalkKey({ store, settings }: { store: SettingsStore; settings: Settings }) {
+  const [capturing, setCapturing] = useState(false);
+  const binding = settings.pushToTalkBinding;
+  useEscape(capturing, () => setCapturing(false));
+
+  useEffect(() => {
+    if (!capturing) return;
+    const take = (event: KeyboardEvent | MouseEvent) => {
+      if (event instanceof KeyboardEvent && event.key === 'Escape') return;
+      const next = bindingFromEvent(event);
+      if (!next) return;
+      event.preventDefault();
+      event.stopPropagation();
+      store.update({ pushToTalkBinding: next });
+      setCapturing(false);
+    };
+    // Wait a tick so the click that started capture isn't captured itself.
+    const timer = setTimeout(() => {
+      addEventListener('keydown', take, true);
+      addEventListener('mousedown', take, true);
+    });
+    return () => {
+      clearTimeout(timer);
+      removeEventListener('keydown', take, true);
+      removeEventListener('mousedown', take, true);
+    };
+  }, [capturing]);
+
+  return (
+    <div class="card card-outline stack-12">
+      <div class="row-wrap center">
+        <span class="grow text-14">{t.talkKey}</span>
+        <span class={cx('keycap', capturing && 'capturing', !binding && 'empty')}>
+          {capturing ? '…' : (binding?.label ?? t.none)}
+        </span>
+        <button class="btn square outline-2" onClick={() => setCapturing(true)} disabled={capturing}>
+          {t.setKey}
+        </button>
+        <button class="btn square btn-ghost" onClick={() => store.update({ pushToTalkBinding: null })}>
+          {t.clear}
+        </button>
+      </div>
+      {capturing && <span class="hint breathe">{t.pressAKey}</span>}
+      <span class="hint">{t.pageKeyNote}</span>
+    </div>
   );
 }
 

@@ -11,6 +11,8 @@ export interface ControlsModel {
   voice: Voice;
   mode: 'open' | 'push-to-talk';
   transmitting: boolean;
+  /** The talk key is down (web app only; the Mac app shows its own indicator). */
+  keyHeld: boolean;
   muted: boolean;
   mic: MediaStreamTrack | null;
   bindingLabel: string | null;
@@ -56,8 +58,10 @@ function Tile(props: {
   );
 }
 
-function HoldToTalk({ voice, transmitting, mic }: { voice: Voice; transmitting: boolean; mic: MediaStreamTrack | null }) {
-  const [held, setHeld] = useState(false);
+function HoldToTalk(props: { voice: Voice; transmitting: boolean; keyHeld: boolean; mic: MediaStreamTrack | null }) {
+  const { voice, transmitting, mic } = props;
+  const [pointerHeld, setHeld] = useState(false);
+  const held = pointerHeld || props.keyHeld;
   const pointer = useRef<number | null>(null);
   const level = useLevel(held ? mic : null);
 
@@ -81,7 +85,7 @@ function HoldToTalk({ voice, transmitting, mic }: { voice: Voice; transmitting: 
       class={cx('hold', held && 'held')}
       role="button"
       aria-label={t.holdToTalk}
-      aria-pressed={held}
+      aria-pressed={pointerHeld}
       onPointerDown={(event) => {
         if (pointer.current !== null) return;
         event.preventDefault();
@@ -104,7 +108,9 @@ function HoldToTalk({ voice, transmitting, mic }: { voice: Voice; transmitting: 
 }
 
 function MicControl({ model, showLabel }: { model: ControlsModel; showLabel?: boolean }) {
-  if (model.mode === 'push-to-talk') return <HoldToTalk voice={model.voice} transmitting={model.transmitting} mic={model.mic} />;
+  if (model.mode === 'push-to-talk') {
+    return <HoldToTalk voice={model.voice} transmitting={model.transmitting} keyHeld={model.keyHeld} mic={model.mic} />;
+  }
   return (
     <Tile
       icon={model.muted ? 'mic_off' : 'mic'}
