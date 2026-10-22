@@ -19,6 +19,9 @@ export interface DesktopBridge {
   listScreenSources(): Promise<ScreenSource[]>;
   selectScreenSource(id: string, options: { audio: boolean }): Promise<void>;
   openPrivacySettings(pane: PrivacyPane): Promise<void>;
+  /** Bounces the dock icon once. */
+  requestAttention(): Promise<void>;
+  focusWindow(): Promise<void>;
   pushToTalk: {
     hasPermission(): Promise<boolean>;
     /** Shows the macOS Accessibility prompt; resolves with the current state (the user may grant it later). */

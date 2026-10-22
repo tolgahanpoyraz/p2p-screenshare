@@ -116,6 +116,8 @@ const en = {
   connectionLostBody: "The server can't be reached. Check your internet, then rejoin with the same link.",
   rejoin: 'Rejoin',
   windowRoom: (id: string) => `room ${id}`,
+  joinedTitle: (name: string | null) => (name ? `${name} joined` : 'They joined'),
+  joinedBody: 'Your call is connecting.',
 
   callControls: 'Call controls',
   mute: 'Mute',
@@ -340,6 +342,8 @@ const tr: Messages = {
   connectionLostBody: 'Sunucuya ulaşılamıyor. İnternetini kontrol et, sonra aynı bağlantıyla yeniden katıl.',
   rejoin: 'Yeniden katıl',
   windowRoom: (id: string) => `oda ${id}`,
+  joinedTitle: (name: string | null) => (name ? `${name} katıldı` : 'Arkadaşın katıldı'),
+  joinedBody: 'Arama bağlanıyor.',
 
   callControls: 'Arama kontrolleri',
   mute: 'Sesi kapat',

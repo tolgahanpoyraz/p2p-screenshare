@@ -1,4 +1,4 @@
-import { ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import type { PrivacyPane } from '../shared/desktop.ts';
 import { assertTrusted } from './origin.ts';
 
@@ -20,5 +20,17 @@ export function registerSystemSettings(origin: string) {
     return shell.openExternal(
       `x-apple.systempreferences:com.apple.preference.security?${panes[pane as PrivacyPane]}`,
     );
+  });
+  ipcMain.handle('system:attention', (event) => {
+    assertTrusted(event, origin);
+    app.dock?.bounce('informational');
+  });
+  ipcMain.handle('system:focus', (event) => {
+    assertTrusted(event, origin);
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return;
+    if (win.isMinimized()) win.restore();
+    win.show();
+    app.focus({ steal: true });
   });
 }

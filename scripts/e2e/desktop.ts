@@ -14,6 +14,8 @@ run(async () => {
 
   await check(mac, 'app window exposes the desktop bridge', `window.desktop?.platform === '${process.platform}'`);
   await check(mac, 'page has no Node access', `typeof require === 'undefined' && typeof process === 'undefined'`);
+  await check(mac, 'notifications are allowed', `Notification.permission === 'granted'`);
+  await check(mac, 'dock attention bridge responds', `window.desktop.requestAttention().then(() => true)`);
   await check(tablet, 'browser window has no bridge', `window.desktop === undefined`);
 
   await evaluate(

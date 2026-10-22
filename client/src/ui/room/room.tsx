@@ -58,6 +58,7 @@ export function Room({ session, store, roomId, layout, settingsOpen, onOpenSetti
   const connected = state === 'connected' || state === 'reconnecting';
   const { you, them } = people(settings, remoteProfile);
   const theyLeft = useTheyLeft(state);
+  useJoinNotice(state, them.named ? them.name : null);
 
   const stageMode = !connected ? null : remoteMedia.screen ? 'screen' : remoteMedia.camera ? 'camera' : 'voice';
   const autoHide = stageMode === 'screen' || stageMode === 'camera';
@@ -322,6 +323,52 @@ function useTheyLeft(state: string) {
     else if (state === 'waiting' && (was === 'connected' || was === 'reconnecting')) setTheyLeft(true);
   }, [state]);
   return theyLeft;
+}
+
+const NAME_WAIT_MS = 3000;
+
+function useJoinNotice(state: string, name: string | null) {
+  const previous = useRef(state);
+  const [pending, setPending] = useState(false);
+  useEffect(() => {
+    const was = previous.current;
+    previous.current = state;
+    if (state === 'waiting' && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+    if (was !== 'waiting' || (state !== 'connecting' && state !== 'connected')) return;
+    if (!document.hidden && document.hasFocus()) return;
+    desktop?.requestAttention();
+    setPending(true);
+  }, [state]);
+
+  useEffect(() => {
+    if (!pending) return;
+    // The name arrives over the data channel shortly after the peer does.
+    if (name) {
+      setPending(false);
+      showJoinNotification(name);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setPending(false);
+      showJoinNotification(null);
+    }, NAME_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [pending, name]);
+}
+
+function showJoinNotification(name: string | null) {
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+  if (!document.hidden && document.hasFocus()) return;
+  try {
+    const notification = new Notification(t.joinedTitle(name), { body: t.joinedBody, tag: 'peer-joined' });
+    notification.onclick = () => {
+      window.focus();
+      desktop?.focusWindow();
+      notification.close();
+    };
+  } catch {}
 }
 
 // Keeps the tablet's screen on during a show; the Mac app benefits too.
