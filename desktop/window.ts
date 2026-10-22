@@ -18,6 +18,7 @@ const ALLOWED_PERMISSIONS = new Set([
   'screen-wake-lock',
   'speaker-selection',
   'notifications',
+  'fullscreen',
 ]);
 
 export interface MainWindowOptions {

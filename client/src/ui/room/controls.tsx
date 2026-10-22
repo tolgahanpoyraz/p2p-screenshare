@@ -21,12 +21,15 @@ export interface ControlsModel {
   canShare: boolean;
   volumeOpen: boolean;
   statsOpen: boolean;
+  /** null when the browser can't go fullscreen. */
+  fullscreen: boolean | null;
   onToggleMute(): void;
   onToggleCamera(): void;
   onSwitchCamera(): void;
   onShare(): void;
   onToggleVolume(): void;
   onToggleStats(): void;
+  onToggleFullscreen(): void;
   onSettings(): void;
   onLeave(): void;
   onInteract(): void;
@@ -148,6 +151,15 @@ const volumeTile = (model: ControlsModel) => (
 const statsTile = (model: ControlsModel) => (
   <Tile icon="monitoring" label={t.stats} tone={model.statsOpen && 'active'} onClick={model.onToggleStats} />
 );
+const fullscreenTile = (model: ControlsModel) =>
+  model.fullscreen !== null && (
+    <Tile
+      icon={model.fullscreen ? 'fullscreen_exit' : 'fullscreen'}
+      label={model.fullscreen ? t.exitFullscreen : t.enterFullscreen}
+      tone={model.fullscreen && 'active'}
+      onClick={model.onToggleFullscreen}
+    />
+  );
 const settingsTile = (model: ControlsModel) => <Tile icon="settings" label={t.settings} onClick={model.onSettings} />;
 const leaveTile = (model: ControlsModel, showLabel?: boolean) => (
   <Tile icon="call_end" label={t.leave} tone="danger" size="leave" showLabel={showLabel} onClick={model.onLeave} />
@@ -183,6 +195,7 @@ export function Controls({ model }: { model: ControlsModel }) {
         <span class="divider" />
         {volumeTile(model)}
         {statsTile(model)}
+        {fullscreenTile(model)}
         {settingsTile(model)}
         <span class="divider" />
         {leaveTile(model)}
@@ -196,6 +209,7 @@ export function Controls({ model }: { model: ControlsModel }) {
         {leaveTile(model, true)}
         <span class="spacer" />
         {settingsTile(model)}
+        {fullscreenTile(model)}
         {statsTile(model)}
         {volumeTile(model)}
         <Tile icon="cameraswitch" label={t.switchCamera} disabled={!model.cameraOn} onClick={model.onSwitchCamera} />
@@ -217,6 +231,7 @@ export function Controls({ model }: { model: ControlsModel }) {
       <MicControl model={model} />
       {volumeTile(model)}
       {statsTile(model)}
+      {fullscreenTile(model)}
       {settingsTile(model)}
     </div>
   );
