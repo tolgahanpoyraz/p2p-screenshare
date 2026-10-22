@@ -10,6 +10,7 @@ const en = {
   joinLinkPlaceholder: 'Paste an invite link',
   join: 'Join',
   joinLinkInvalid: "That doesn't look like a screenshare link.",
+  joinLinkFromClipboard: 'Invite link from your clipboard',
   homeFooter: 'Private and peer-to-peer · no accounts · nothing saved',
   roomFullTitle: 'This room already has two people',
   roomFullBody: 'screenshare rooms are for exactly two. If you meant to join, ask whoever sent the link to start a new room.',
@@ -233,6 +234,7 @@ const tr: Messages = {
   joinLinkPlaceholder: 'Davet bağlantısını yapıştır',
   join: 'Katıl',
   joinLinkInvalid: 'Bu bir screenshare bağlantısına benzemiyor.',
+  joinLinkFromClipboard: 'Panondaki davet bağlantısı',
   homeFooter: 'Gizli ve eşler arası · hesap yok · hiçbir şey kaydedilmez',
   roomFullTitle: 'Bu odada zaten iki kişi var',
   roomFullBody:

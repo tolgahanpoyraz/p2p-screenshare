@@ -1,5 +1,5 @@
-import { useState } from 'preact/hooks';
-import { parseRoomLink } from '../core/media.ts';
+import { useEffect, useRef, useState } from 'preact/hooks';
+import { parseRoomLink } from '../../../shared/protocol.ts';
 import { desktop } from '../platform.ts';
 import { Icon } from './controls.tsx';
 import { t } from './i18n.ts';
@@ -34,6 +34,32 @@ export function Home({ onNewRoom, onJoin, onSetup }: { onNewRoom(): void; onJoin
 function JoinLink({ onJoin }: { onJoin(roomId: string): void }) {
   const [link, setLink] = useState('');
   const [invalid, setInvalid] = useState(false);
+  const [pasted, setPasted] = useState<string | null>(null);
+  const linkRef = useRef(link);
+  const pastedRef = useRef(pasted);
+  const joinButton = useRef<HTMLButtonElement>(null);
+  linkRef.current = link;
+  pastedRef.current = pasted;
+
+  useEffect(() => {
+    const check = async () => {
+      const roomId = await desktop!.readInviteFromClipboard();
+      if (!roomId) return;
+      const invite = `${location.origin}/r/${roomId}`;
+      if (invite === pastedRef.current) return;
+      if (linkRef.current.trim() && linkRef.current !== pastedRef.current) return;
+      setLink(invite);
+      setPasted(invite);
+      setInvalid(false);
+    };
+    check();
+    window.addEventListener('focus', check);
+    return () => window.removeEventListener('focus', check);
+  }, []);
+
+  useEffect(() => {
+    if (pasted) joinButton.current?.focus();
+  }, [pasted]);
 
   const submit = (event: Event) => {
     event.preventDefault();
@@ -56,11 +82,12 @@ function JoinLink({ onJoin }: { onJoin(roomId: string): void }) {
             setInvalid(false);
           }}
         />
-        <button class="btn btn-outline btn-md" type="submit" disabled={!link.trim()}>
+        <button ref={joinButton} class="btn btn-outline btn-md" type="submit" disabled={!link.trim()}>
           {t.join}
         </button>
       </div>
       {invalid && <p class="join-link-error">{t.joinLinkInvalid}</p>}
+      {!invalid && pasted !== null && link === pasted && <p class="join-link-hint">{t.joinLinkFromClipboard}</p>}
     </form>
   );
 }

@@ -1,6 +1,7 @@
-import { ipcMain, shell } from 'electron';
+import { clipboard, ipcMain, shell } from 'electron';
 import type { PrivacyPane } from '../shared/desktop.ts';
-import { assertTrusted } from './origin.ts';
+import { parseRoomLink } from '../shared/protocol.ts';
+import { assertTrusted, originOf } from './origin.ts';
 
 const panes: Record<PrivacyPane, string> = {
   microphone: 'Privacy_Microphone',
@@ -20,5 +21,12 @@ export function registerSystemSettings(origin: string) {
     return shell.openExternal(
       `x-apple.systempreferences:com.apple.preference.security?${panes[pane as PrivacyPane]}`,
     );
+  });
+  // Only full invite links to our own server count, so other clipboard contents never reach the page.
+  ipcMain.handle('system:clipboard-invite', async (event) => {
+    assertTrusted(event, origin);
+    const text = await clipboard.readText();
+    if (text.length > 2048 || originOf(text.trim()) !== origin) return null;
+    return parseRoomLink(text);
   });
 }

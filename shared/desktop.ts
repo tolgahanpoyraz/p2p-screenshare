@@ -19,6 +19,8 @@ export interface DesktopBridge {
   listScreenSources(): Promise<ScreenSource[]>;
   selectScreenSource(id: string, options: { audio: boolean }): Promise<void>;
   openPrivacySettings(pane: PrivacyPane): Promise<void>;
+  /** Room id of an invite link to this app's server on the clipboard, or null. */
+  readInviteFromClipboard(): Promise<string | null>;
   pushToTalk: {
     hasPermission(): Promise<boolean>;
     /** Shows the macOS Accessibility prompt; resolves with the current state (the user may grant it later). */

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createRoomId, parseRoomLink } from './media.ts';
+import { parseRoomLink } from '../../../shared/protocol.ts';
+import { createRoomId } from './media.ts';
 
 test('parseRoomLink accepts a full invite link', () => {
   assert.equal(parseRoomLink('https://example.com/r/abcDEF12_-'), 'abcDEF12_-');

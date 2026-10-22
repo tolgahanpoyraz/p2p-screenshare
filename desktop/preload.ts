@@ -7,6 +7,7 @@ const bridge: DesktopBridge = {
   listScreenSources: () => ipcRenderer.invoke('screen:list'),
   selectScreenSource: (id, { audio }) => ipcRenderer.invoke('screen:select', id, audio),
   openPrivacySettings: (pane) => ipcRenderer.invoke('system:open-privacy', pane),
+  readInviteFromClipboard: () => ipcRenderer.invoke('system:clipboard-invite'),
   pushToTalk: {
     hasPermission: () => ipcRenderer.invoke('ptt:has-permission'),
     requestPermission: () => ipcRenderer.invoke('ptt:request-permission'),
