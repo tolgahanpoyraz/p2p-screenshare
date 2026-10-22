@@ -85,7 +85,13 @@ export class Call extends Emitter<CallEvents> {
     super();
     this.options = options;
     this.signaling = new Signaling(options.signalingUrl);
-    this.signaling.on('welcome', ({ peers }) => this.setState(peers.length ? 'connecting' : 'waiting'));
+    // On a rejoin the other side starts over with a fresh offer.
+    this.signaling.on('welcome', ({ peers }) =>
+      this.enqueue(async () => {
+        this.teardown();
+        this.setState(peers.length ? 'connecting' : 'waiting');
+      }),
+    );
     this.signaling.on('peer-joined', () => this.enqueue(() => this.startAsInitiator()));
     this.signaling.on('peer-left', () => {
       this.teardown();
@@ -96,6 +102,7 @@ export class Call extends Emitter<CallEvents> {
       if (error.code === 'room-full' || error.code === 'bad-room') this.rejection = error;
       this.emit('error', error);
     });
+    this.signaling.on('reconnecting', () => this.setState('reconnecting'));
     this.signaling.on('closed', () => {
       if (!this.pc) this.setState('closed');
     });

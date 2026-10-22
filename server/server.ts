@@ -18,6 +18,7 @@ interface Peer {
   id: PeerId;
   socket: WebSocket;
   alive: boolean;
+  session: string;
 }
 
 export interface ServerOptions {
@@ -91,14 +92,23 @@ export function createSignalingServer(options: ServerOptions = {}) {
       socket.destroy();
       return;
     }
-    wss.handleUpgrade(req, socket, head, (ws) => join(ws, url.searchParams.get('room') ?? ''));
+    const room = url.searchParams.get('room') ?? '';
+    const session = url.searchParams.get('session') ?? '';
+    wss.handleUpgrade(req, socket, head, (ws) => join(ws, room, session));
   });
 
   function send(ws: WebSocket, message: ServerMessage) {
     ws.send(JSON.stringify(message));
   }
 
-  function join(socket: WebSocket, roomId: string) {
+  function leave(room: Map<PeerId, Peer>, roomId: string, peer: Peer) {
+    if (room.get(peer.id) !== peer) return;
+    room.delete(peer.id);
+    if (room.size === 0) rooms.delete(roomId);
+    for (const other of room.values()) send(other.socket, { type: 'peer-left', peerId: peer.id });
+  }
+
+  function join(socket: WebSocket, roomId: string, session: string) {
     if (!ROOM_ID_PATTERN.test(roomId)) {
       send(socket, { type: 'error', code: 'bad-room', message: 'Invalid room id' });
       socket.close(CloseCode.BadRoom);
@@ -106,6 +116,12 @@ export function createSignalingServer(options: ServerOptions = {}) {
     }
 
     const room = rooms.get(roomId) ?? new Map<PeerId, Peer>();
+    // A reconnecting client may beat the server to noticing its old socket is dead.
+    const stale = session && [...room.values()].find((p) => p.session === session);
+    if (stale) {
+      room.delete(stale.id);
+      stale.socket.terminate();
+    }
     if (room.size >= ROOM_CAPACITY) {
       send(socket, { type: 'error', code: 'room-full', message: 'Room is full' });
       socket.close(CloseCode.RoomFull);
@@ -113,7 +129,7 @@ export function createSignalingServer(options: ServerOptions = {}) {
     }
     rooms.set(roomId, room);
 
-    const peer: Peer = { id: randomUUID(), socket, alive: true };
+    const peer: Peer = { id: randomUUID(), socket, alive: true, session };
     const others = [...room.values()];
     room.set(peer.id, peer);
 
@@ -135,11 +151,7 @@ export function createSignalingServer(options: ServerOptions = {}) {
       }
     });
 
-    socket.on('close', () => {
-      room.delete(peer.id);
-      if (room.size === 0) rooms.delete(roomId);
-      for (const other of room.values()) send(other.socket, { type: 'peer-left', peerId: peer.id });
-    });
+    socket.on('close', () => leave(room, roomId, peer));
   }
 
   // Phones on flaky networks often vanish without a TCP close; pings let us notice and free the slot.

@@ -19,8 +19,9 @@ class Client {
   private waiters: ((m: ServerMessage) => void)[] = [];
   closed: Promise<number>;
 
-  constructor(room: string, options: { autoPong?: boolean } = {}) {
-    this.socket = new WebSocket(`ws://${base}/ws?room=${room}`, options);
+  constructor(room: string, options: { autoPong?: boolean; session?: string } = {}) {
+    const session = options.session ? `&session=${options.session}` : '';
+    this.socket = new WebSocket(`ws://${base}/ws?room=${room}${session}`, options);
     this.socket.on('message', (raw) => {
       const message = JSON.parse(raw.toString());
       const waiter = this.waiters.shift();
@@ -107,6 +108,26 @@ test('frees the slot when a peer stops answering pings', async () => {
   assert.equal((await c.next()).type, 'welcome');
   b.socket.close();
   c.socket.close();
+});
+
+test('a rejoin with the same session replaces the stale socket', async () => {
+  const a = new Client('room-rejoin-1', { session: 'abc' });
+  const b = new Client('room-rejoin-1');
+  await a.next();
+  const bWelcome = await b.next();
+  await a.next();
+
+  const again = new Client('room-rejoin-1', { session: 'abc' });
+  const welcome = await again.next();
+  assert.ok(welcome.type === 'welcome' && bWelcome.type === 'welcome');
+  assert.deepEqual(welcome.peers, [bWelcome.peerId]);
+  await a.closed;
+  assert.deepEqual(await b.next(), { type: 'peer-joined', peerId: welcome.peerId });
+
+  const c = new Client('room-rejoin-1', { session: 'other' });
+  assert.equal((await c.next()).type, 'error');
+  again.socket.close();
+  b.socket.close();
 });
 
 test('serves ICE config', async () => {
