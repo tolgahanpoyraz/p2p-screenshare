@@ -10,7 +10,7 @@ import { deviceOptions, usePreviewCamera, usePreviewMic } from './media-hooks.ts
 import { isPermissionError, PermissionCard, type BlockedDevice } from './permission.tsx';
 import { t } from './i18n.ts';
 import { toast } from './toasts.tsx';
-import { desktop } from '../platform.ts';
+import { desktop, isMacBrowser } from '../platform.ts';
 
 interface PrejoinProps {
   roomId: string;
@@ -154,6 +154,11 @@ export function Prejoin({ roomId, store, onJoined }: PrejoinProps) {
             <span class="join-note">
               {desktop ? t.joinNoteMac : t.joinNoteTablet}
             </span>
+            {isMacBrowser && (
+              <a class="open-in-app" href={`screenshare://r/${roomId}`}>
+                {t.openInMacApp}
+              </a>
+            )}
           </div>
         </section>
       </div>

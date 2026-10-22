@@ -344,6 +344,8 @@ p { text-wrap: pretty; }
 .identity-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .identity-row .input { flex: 1 1 160px; }
 .join-note { font-size: 13px; color: var(--ink-3); text-align: center; }
+.open-in-app { align-self: center; font-size: 13px; color: var(--ink-3); text-decoration: underline; text-underline-offset: 3px; }
+.open-in-app:hover { color: var(--ink); }
 
 .perm { display: flex; flex-direction: column; gap: 12px; padding: 20px; border-radius: 22px; background: var(--danger-soft); }
 .perm-title { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; }
