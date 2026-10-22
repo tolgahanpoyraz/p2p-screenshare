@@ -285,6 +285,11 @@ p { text-wrap: pretty; }
 .home-text h1 { font-size: 44px; font-weight: 600; letter-spacing: -0.025em; line-height: 1.05; }
 .home-text p { font-size: 17px; color: var(--ink-2); max-width: 360px; }
 .home-actions { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.join-link { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 420px; }
+.join-link-row { display: flex; gap: 8px; }
+.join-link-row .input { flex: 1; }
+.join-link .input[aria-invalid='true'] { border-color: var(--danger); }
+.join-link-error { font-size: 13px; color: var(--danger); }
 .home-footer { position: absolute; bottom: 28px; left: 0; right: 0; font-size: 13px; color: var(--ink-3); }
 
 .fullscreen-msg {

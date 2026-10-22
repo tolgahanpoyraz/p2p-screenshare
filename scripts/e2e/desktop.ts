@@ -8,13 +8,23 @@ run(async () => {
   const room = `${base}/r/desktop-${Date.now()}`;
   const preload = join(import.meta.dirname, '../desktop/preload.cjs');
 
-  const mac = createMainWindow({ url: room, preload, show: false });
+  const mac = createMainWindow({ url: base, preload, show: false });
   await new Promise<void>((done) => mac.webContents.once('did-finish-load', () => done()));
   const tablet = await openBrowserWindow(room);
 
   await check(mac, 'app window exposes the desktop bridge', `window.desktop?.platform === '${process.platform}'`);
   await check(mac, 'page has no Node access', `typeof require === 'undefined' && typeof process === 'undefined'`);
   await check(tablet, 'browser window has no bridge', `window.desktop === undefined`);
+
+  await evaluate(
+    mac,
+    `const input = document.querySelector('.join-link input');
+    input.value = ${JSON.stringify(room)};
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    true`,
+  );
+  await evaluate(mac, `document.querySelector('.join-link').requestSubmit(); true`);
+  await waitFor(mac, 'pasting an invite link opens the room', `location.href === ${JSON.stringify(room)}`);
 
   await clickJoin(mac);
   await clickJoin(tablet);

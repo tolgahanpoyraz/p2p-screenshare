@@ -1,4 +1,4 @@
-import type { ClientConfig } from '../../../shared/protocol.ts';
+import { ROOM_ID_PATTERN, type ClientConfig } from '../../../shared/protocol.ts';
 
 export interface VoiceProcessing {
   echoCancellation: boolean;
@@ -39,4 +39,16 @@ export function signalingUrl(baseUrl: string, roomId: string) {
 export function createRoomId() {
   const bytes = crypto.getRandomValues(new Uint8Array(12));
   return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_');
+}
+
+/** Accepts a full invite link or just the room id; returns null if neither. */
+export function parseRoomLink(text: string) {
+  const trimmed = text.trim();
+  let candidate = trimmed;
+  try {
+    const match = new URL(trimmed).pathname.match(/^\/r\/([^/]+)\/?$/);
+    if (!match) return null;
+    candidate = decodeURIComponent(match[1]);
+  } catch {}
+  return ROOM_ID_PATTERN.test(candidate) ? candidate : null;
 }

@@ -107,7 +107,9 @@ export function App() {
 
   let page;
   if (failure) page = <FailureScreen failure={failure} onNewRoom={newRoom} />;
-  else if (route.page === 'home') page = <Home onNewRoom={newRoom} onSetup={openSettings} />;
+  else if (route.page === 'home') {
+    page = <Home onNewRoom={newRoom} onJoin={(roomId) => navigate(`/r/${roomId}`)} onSetup={openSettings} />;
+  }
   else if (!session) page = <Prejoin key={route.roomId} roomId={route.roomId} store={store} onJoined={setSession} />;
   else {
     page = (
