@@ -22,6 +22,8 @@ export interface DesktopBridge {
   /** Bounces the dock icon once. */
   requestAttention(): Promise<void>;
   focusWindow(): Promise<void>;
+  /** Room id of an invite link to this app's server on the clipboard, or null. */
+  readInviteFromClipboard(): Promise<string | null>;
   pushToTalk: {
     hasPermission(): Promise<boolean>;
     /** Shows the macOS Accessibility prompt; resolves with the current state (the user may grant it later). */

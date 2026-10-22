@@ -9,6 +9,7 @@ const bridge: DesktopBridge = {
   openPrivacySettings: (pane) => ipcRenderer.invoke('system:open-privacy', pane),
   requestAttention: () => ipcRenderer.invoke('system:attention'),
   focusWindow: () => ipcRenderer.invoke('system:focus'),
+  readInviteFromClipboard: () => ipcRenderer.invoke('system:clipboard-invite'),
   pushToTalk: {
     hasPermission: () => ipcRenderer.invoke('ptt:has-permission'),
     requestPermission: () => ipcRenderer.invoke('ptt:request-permission'),

@@ -290,6 +290,7 @@ p { text-wrap: pretty; }
 .join-link-row .input { flex: 1; }
 .join-link .input[aria-invalid='true'] { border-color: var(--danger); }
 .join-link-error { font-size: 13px; color: var(--danger); }
+.join-link-hint { font-size: 13px; color: var(--ink-2); }
 .home-footer { position: absolute; bottom: 28px; left: 0; right: 0; font-size: 13px; color: var(--ink-3); }
 
 .fullscreen-msg {

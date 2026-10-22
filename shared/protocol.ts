@@ -3,6 +3,18 @@ export type PeerId = string;
 export const ROOM_CAPACITY = 2;
 export const ROOM_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
 
+/** Accepts a full invite link or just the room id; returns null if neither. */
+export function parseRoomLink(text: string) {
+  const trimmed = text.trim();
+  let candidate = trimmed;
+  try {
+    const match = new URL(trimmed).pathname.match(/^\/r\/([^/]+)\/?$/);
+    if (!match) return null;
+    candidate = decodeURIComponent(match[1]);
+  } catch {}
+  return ROOM_ID_PATTERN.test(candidate) ? candidate : null;
+}
+
 // Mirrors RTCSessionDescriptionInit / RTCIceCandidateInit so the server doesn't need DOM types.
 export interface SessionDescription {
   type: 'offer' | 'answer' | 'pranswer' | 'rollback';
