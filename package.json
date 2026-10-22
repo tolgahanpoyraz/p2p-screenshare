@@ -25,6 +25,6 @@
     "start": "node scripts/dev.ts",
     "desktop": "node scripts/build-desktop.ts && env -u ELECTRON_RUN_AS_NODE electron dist/desktop/main.mjs",
     "e2e": "node scripts/e2e/run.ts",
-    "test": "node --test 'server/**/*.test.ts' 'client/src/**/*.test.ts'"
+    "test": "node --test 'server/**/*.test.ts' 'client/src/**/*.test.ts' 'desktop/**/*.test.ts'"
   }
 }
