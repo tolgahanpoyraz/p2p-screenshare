@@ -132,3 +132,42 @@ export function useInterval(callback: () => void, ms: number | null) {
     return () => clearInterval(id);
   }, [ms]);
 }
+
+const typing = (target: EventTarget | null) =>
+  target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+
+/** Fullscreen state of the whole page; with `shortcut`, the F key toggles it too. */
+export function useFullscreen(shortcut: boolean) {
+  const [active, setActive] = useState(() => document.fullscreenElement !== null);
+  const supported = document.fullscreenEnabled;
+  const toggle = () => {
+    if (!supported) return;
+    const request = document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+    request.catch(() => {});
+  };
+
+  useEffect(() => {
+    const sync = () => setActive(document.fullscreenElement !== null);
+    document.addEventListener('fullscreenchange', sync);
+    return () => {
+      document.removeEventListener('fullscreenchange', sync);
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    };
+  }, []);
+
+  const latest = useRef(toggle);
+  latest.current = toggle;
+  useEffect(() => {
+    if (!shortcut || !supported) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.code !== 'KeyF' || event.repeat || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+      if (typing(event.target)) return;
+      event.preventDefault();
+      latest.current();
+    };
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  }, [shortcut, supported]);
+
+  return { supported, active, toggle };
+}

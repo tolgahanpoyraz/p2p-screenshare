@@ -22,9 +22,11 @@ interface Options {
   frame: Rect;
   onTap(): void;
   onFirstZoom(): void;
+  /** Mouse double-clicks only; a double-tap with a finger zooms instead. */
+  onDoubleClick(): void;
 }
 
-export function useStageGestures({ touch, zoomable, frame, onTap, onFirstZoom }: Options) {
+export function useStageGestures({ touch, zoomable, frame, onTap, onFirstZoom, onDoubleClick }: Options) {
   const [zoom, setZoomState] = useState(NO_ZOOM);
   const current = useRef(zoom);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -32,6 +34,7 @@ export function useStageGestures({ touch, zoomable, frame, onTap, onFirstZoom }:
   const tap = useRef<{ t: number; x: number; y: number; moved: boolean } | null>(null);
   const lastTap = useRef(0);
   const tapTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const mouse = useRef(false);
 
   // The pan is clamped so the picture's edges never come inside the frame.
   const setZoom = (z: Zoom) => {
@@ -43,6 +46,7 @@ export function useStageGestures({ touch, zoomable, frame, onTap, onFirstZoom }:
   };
 
   const onPointerDown = (event: PointerEvent) => {
+    mouse.current = event.pointerType === 'mouse';
     if (!touch) return;
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
@@ -81,7 +85,7 @@ export function useStageGestures({ touch, zoomable, frame, onTap, onFirstZoom }:
 
     const now = Date.now();
     clearTimeout(tapTimer.current);
-    if (zoomable && now - lastTap.current < DOUBLE_TAP_MS) {
+    if (zoomable && !mouse.current && now - lastTap.current < DOUBLE_TAP_MS) {
       lastTap.current = 0;
       setZoom(current.current.s > 1 ? NO_ZOOM : { s: DOUBLE_TAP_ZOOM, x: 0, y: 0 });
       onFirstZoom();
@@ -95,9 +99,13 @@ export function useStageGestures({ touch, zoomable, frame, onTap, onFirstZoom }:
     if (!touch) onTap();
   };
 
+  const onDblClick = () => {
+    if (!touch || mouse.current) onDoubleClick();
+  };
+
   return {
     zoom,
     resetZoom: () => setZoom(NO_ZOOM),
-    handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp, onClick },
+    handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp, onClick, onDblClick },
   };
 }

@@ -17,6 +17,7 @@ const ALLOWED_PERMISSIONS = new Set([
   'clipboard-sanitized-write',
   'screen-wake-lock',
   'speaker-selection',
+  'fullscreen',
 ]);
 
 export interface MainWindowOptions {

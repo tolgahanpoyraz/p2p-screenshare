@@ -3,7 +3,7 @@ import type { ScreenSource } from '../../../../shared/desktop.ts';
 import type { Session } from '../../core/session.ts';
 import type { SettingsStore } from '../../core/settings.ts';
 import { Icon } from '../controls.tsx';
-import { useEscape, useSettings, useSize, useSubscribe } from '../hooks.ts';
+import { useEscape, useFullscreen, useSettings, useSize, useSubscribe } from '../hooks.ts';
 import { people } from '../identity.ts';
 import { isPermissionError, PermissionCard, type BlockedDevice } from '../permission.tsx';
 import { t } from '../i18n.ts';
@@ -72,6 +72,10 @@ export function Room({ session, store, roomId, layout, settingsOpen, onOpenSetti
   }, [busy, autoHide]);
   useEffect(() => () => clearTimeout(hideTimer.current), []);
 
+  const binding = settings.pushToTalkBinding;
+  const fKeyIsPtt = Boolean(desktop) && binding?.kind === 'key' && binding.label.toUpperCase() === 'F';
+  const fullscreen = useFullscreen(!busy && !fKeyIsPtt);
+
   const frame = contain(stage, videoSize);
   const gestures = useStageGestures({
     touch: !desktop,
@@ -88,6 +92,7 @@ export function Room({ session, store, roomId, layout, settingsOpen, onOpenSetti
       setPinchHint(false);
       storageFlag(PINCH_HINT_KEY, true);
     },
+    onDoubleClick: fullscreen.toggle,
   });
   useEffect(() => {
     if (stageMode !== 'screen') gestures.resetZoom();
@@ -163,6 +168,7 @@ export function Room({ session, store, roomId, layout, settingsOpen, onOpenSetti
     canShare: Boolean(desktop),
     volumeOpen: popover === 'volume',
     statsOpen,
+    fullscreen: fullscreen.supported ? fullscreen.active : null,
     onToggleMute: () => voice.setMuted(!voice.muted),
     onToggleCamera: toggleCamera,
     onSwitchCamera: switchCamera,
@@ -175,6 +181,7 @@ export function Room({ session, store, roomId, layout, settingsOpen, onOpenSetti
     },
     onToggleVolume: () => setPopover(popover === 'volume' ? null : 'volume'),
     onToggleStats: () => setStatsOpen(!statsOpen),
+    onToggleFullscreen: fullscreen.toggle,
     onSettings: () => {
       setPopover(null);
       onOpenSettings();
