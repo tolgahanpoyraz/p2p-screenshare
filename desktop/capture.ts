@@ -1,4 +1,4 @@
-import { desktopCapturer, ipcMain, webContents, type Session } from 'electron';
+import { BrowserWindow, desktopCapturer, ipcMain, webContents, type Session } from 'electron';
 import type { ScreenSource } from '../shared/desktop.ts';
 import { assertTrusted, originOf } from './origin.ts';
 
@@ -20,7 +20,8 @@ export function registerScreenCapture(session: Session, origin: string) {
       types: ['screen', 'window'],
       thumbnailSize: { width: 320, height: 200 },
     });
-    return sources.map((source) => ({
+    const own = new Set(BrowserWindow.getAllWindows().map((win) => win.getMediaSourceId()));
+    return sources.filter((source) => !own.has(source.id)).map((source) => ({
       id: source.id,
       name: source.name,
       kind: source.id.startsWith('screen:') ? 'screen' : 'window',

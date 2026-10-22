@@ -17,9 +17,8 @@ export function SourcePicker(props: {
   const [sources, setSources] = useState<ScreenSource[] | null>(null);
   useEscape(true, props.onClose);
 
-  useEffect(() => {
-    desktop!.listScreenSources().then(setSources, props.onError);
-  }, []);
+  const refresh = () => desktop!.listScreenSources().then(setSources, props.onError);
+  useEffect(() => void refresh(), []);
 
   const section = (kind: ScreenSource['kind'], title: string, icon: string) => {
     const list = sources?.filter((s) => s.kind === kind) ?? [];
@@ -47,6 +46,10 @@ export function SourcePicker(props: {
       <div class="modal picker" role="dialog" aria-label={t.shareYourScreen} onClick={(e) => e.stopPropagation()}>
         <div class="modal-head">
           <h3>{t.shareYourScreen}</h3>
+          <span class="spacer" />
+          <button class="icon-btn ms" aria-label={t.refreshSources} title={t.refreshSources} onClick={refresh}>
+            refresh
+          </button>
           <button class="icon-btn ms" aria-label={t.close} onClick={props.onClose}>
             close
           </button>
@@ -55,6 +58,7 @@ export function SourcePicker(props: {
           {!sources && <span class="ink-3">{t.lookingForSources}</span>}
           {section('screen', t.screens, 'desktop_windows')}
           {section('window', t.windows, 'web_asset')}
+          {sources && <span class="ink-3 picker-hint">{t.fullScreenHint}</span>}
         </div>
         <div class="picker-foot">
           <button

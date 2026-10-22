@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { desktopCapturer } from 'electron';
 import { createMainWindow } from '../../desktop/window.ts';
 import { base, check, clickJoin, evaluate, openBrowserWindow, rtp, run, useFakeMedia, waitFor } from './helpers.ts';
 
@@ -18,6 +19,16 @@ run(async () => {
   const display = sources.find((s: { kind: string }) => s.kind === 'screen');
   if (!display?.thumbnail.startsWith('data:image/png')) throw new Error('no screen source with a thumbnail');
   console.log(`  ✔ lists ${sources.length} sources (screen: "${display.name}")`);
+
+  mac.showInactive();
+  await waitFor(mac, 'window is visible', `document.visibilityState === 'visible'`);
+  const own = mac.getMediaSourceId();
+  const raw = await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 0, height: 0 } });
+  if (!raw.some((s) => s.id === own)) throw new Error(`own window ${own} not among ${raw.map((s) => s.id).join(', ')}`);
+  const listed = await evaluate(mac, `desktop.listScreenSources()`);
+  if (listed.some((s: { id: string }) => s.id === own)) throw new Error('the app lists its own window');
+  mac.hide();
+  console.log('  ✔ hides its own window from the picker');
 
   const tryCapture = `navigator.mediaDevices.getDisplayMedia({ video: true }).then((s) => (s.getTracks().forEach((t) => t.stop()), 'granted'), () => 'rejected')`;
   if ((await evaluate(mac, tryCapture, true)) !== 'rejected') throw new Error('capture without a selection should be rejected');
