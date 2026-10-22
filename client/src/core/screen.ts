@@ -67,7 +67,9 @@ export class ScreenShare extends Emitter<ScreenShareEvents> {
     const stream = await navigator.mediaDevices.getDisplayMedia({
       video: captureConstraints(this.quality),
       audio: audio ? showAudioConstraints : false,
-    });
+      selfBrowserSurface: 'exclude',
+      surfaceSwitching: 'include',
+    } as DisplayMediaStreamOptions);
     if (generation !== this.generation) {
       for (const track of stream.getTracks()) track.stop();
       return;

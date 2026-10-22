@@ -709,6 +709,7 @@ button.banner { border-color: var(--line); }
 
 .picker { max-width: 880px; flex-direction: column; }
 .picker-body { flex: 1; overflow: auto; padding: 12px 24px 20px; display: flex; flex-direction: column; gap: 18px; }
+.picker-hint { font-size: 13px; }
 .source-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
 .source {
   display: flex;
