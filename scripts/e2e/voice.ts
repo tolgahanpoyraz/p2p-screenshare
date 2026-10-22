@@ -1,4 +1,4 @@
-import { base, clickJoin, clickLabel, inboundAudio, openBrowserWindow, pageHasText, run, sleep, useFakeMedia, waitFor } from './helpers.ts';
+import { base, clickJoin, clickLabel, evaluate, inboundAudio, openBrowserWindow, pageHasText, run, sleep, useFakeMedia, waitFor } from './helpers.ts';
 
 useFakeMedia();
 
@@ -20,6 +20,12 @@ run(async () => {
   await waitFor(a, 'A receives audio', `${inboundAudio}.then((s) => s.packets > 50)`);
   await waitFor(b, 'B receives audio', `${inboundAudio}.then((s) => s.packets > 50)`);
   await waitFor(b, 'B hears A', `${inboundAudio}.then((s) => s.level > 0.01)`);
+
+  await evaluate(b, `window.firstPc = window.call.peerConnection; window.call.signaling.socket.close(); true`);
+  await waitFor(b, 'B shows reconnecting when signaling drops', `window.call.state === 'reconnecting'`);
+  await waitFor(b, 'B rejoins with a fresh connection', `window.call.state === 'connected' && window.call.peerConnection !== window.firstPc`);
+  await waitFor(a, 'A is connected again', `window.call.state === 'connected'`);
+  await waitFor(b, 'B hears A after rejoining', `${inboundAudio}.then((s) => s.level > 0.01)`);
 
   const extra = await join();
   await waitFor(extra, 'a third person sees the room is full', pageHasText('This room already has two people'));
