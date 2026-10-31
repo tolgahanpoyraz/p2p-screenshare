@@ -43,6 +43,22 @@ export type ServerMessage =
   | { type: 'signal'; from: PeerId; data: SignalData }
   | { type: 'error'; code: ErrorCode; message: string };
 
+/** Plain-text keepalive, so the Cloudflare room can answer it without waking up. */
+export const PING = 'ping';
+export const PONG = 'pong';
+export const PING_INTERVAL_MS = 20_000;
+
+export function parseClientMessage(raw: string): ClientMessage | null {
+  try {
+    const message = JSON.parse(raw);
+    const kind = message?.data?.kind;
+    if (message?.type === 'signal' && (kind === 'description' || kind === 'candidate')) {
+      return message;
+    }
+  } catch {}
+  return null;
+}
+
 export const CloseCode = {
   RoomFull: 4001,
   BadRoom: 4002,

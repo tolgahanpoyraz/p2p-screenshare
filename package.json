@@ -4,12 +4,14 @@
   "version": "0.1.0",
   "type": "module",
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261031.1",
     "@types/node": "^26.6.5",
     "@types/ws": "^8.18.2",
     "electron": "^44.9.0",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2",
-    "vite": "^8.3.4"
+    "vite": "^8.3.4",
+    "wrangler": "^4.156.0"
   },
   "dependencies": {
     "@material-symbols/font-400": "^0.48.0",
@@ -19,7 +21,9 @@
   },
   "scripts": {
     "server": "node --watch server/main.ts",
-    "typecheck": "tsc -p . && tsc -p client && tsc -p client/tsconfig.test.json && tsc -p desktop",
+    "typecheck": "tsc -p . && tsc -p client && tsc -p client/tsconfig.test.json && tsc -p desktop && tsc -p worker",
+    "worker": "wrangler dev --port 8790",
+    "deploy": "wrangler deploy",
     "dev": "vite client",
     "build": "vite build client",
     "start": "node scripts/dev.ts",

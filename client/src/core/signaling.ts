@@ -1,4 +1,4 @@
-import { CloseCode } from '../../../shared/protocol.ts';
+import { CloseCode, PING, PING_INTERVAL_MS, PONG } from '../../../shared/protocol.ts';
 import type { ErrorCode, PeerId, ServerMessage, SignalData, ClientMessage } from '../../../shared/protocol.ts';
 import { Emitter } from './emitter.ts';
 
@@ -22,6 +22,7 @@ export class Signaling extends Emitter<SignalingEvents> {
   private stopped = false;
   private retryMs = RETRY_MIN_MS;
   private retryTimer: ReturnType<typeof setTimeout> | undefined;
+  private pingTimer: ReturnType<typeof setInterval> | undefined;
 
   constructor(url: string) {
     super();
@@ -35,11 +36,20 @@ export class Signaling extends Emitter<SignalingEvents> {
   private connect() {
     const socket = new WebSocket(this.url);
     this.socket = socket;
-    socket.onmessage = (event) => this.dispatch(JSON.parse(event.data));
+    socket.onopen = () => {
+      clearInterval(this.pingTimer);
+      this.pingTimer = setInterval(() => {
+        if (socket.readyState === WebSocket.OPEN) socket.send(PING);
+      }, PING_INTERVAL_MS);
+    };
+    socket.onmessage = (event) => {
+      if (event.data !== PONG) this.dispatch(JSON.parse(event.data));
+    };
     socket.onerror = () => {
       if (!this.joined) this.emit('error', { code: 'connection', message: 'Signaling connection failed' });
     };
     socket.onclose = ({ code }) => {
+      if (this.socket === socket) clearInterval(this.pingTimer);
       const rejected = code === CloseCode.RoomFull || code === CloseCode.BadRoom;
       if (this.stopped || rejected || !this.joined) {
         this.stopped = true;
@@ -61,6 +71,7 @@ export class Signaling extends Emitter<SignalingEvents> {
   close() {
     this.stopped = true;
     clearTimeout(this.retryTimer);
+    clearInterval(this.pingTimer);
     this.socket.close();
   }
 

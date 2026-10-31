@@ -5,10 +5,12 @@ import { randomUUID } from 'node:crypto';
 import { WebSocketServer, type WebSocket } from 'ws';
 import {
   CloseCode,
+  parseClientMessage,
+  PING,
+  PONG,
   ROOM_CAPACITY,
   ROOM_ID_PATTERN,
   type ClientConfig,
-  type ClientMessage,
   type IceServer,
   type PeerId,
   type ServerMessage,
@@ -141,7 +143,12 @@ export function createSignalingServer(options: ServerOptions = {}) {
     });
 
     socket.on('message', (raw) => {
-      const message = parse(raw.toString());
+      const text = raw.toString();
+      if (text === PING) {
+        socket.send(PONG);
+        return;
+      }
+      const message = parseClientMessage(text);
       if (!message) {
         send(socket, { type: 'error', code: 'bad-message', message: 'Malformed message' });
         return;
@@ -183,17 +190,6 @@ export function createSignalingServer(options: ServerOptions = {}) {
       return new Promise((done) => http.close(() => done()));
     },
   };
-}
-
-function parse(raw: string): ClientMessage | null {
-  try {
-    const message = JSON.parse(raw);
-    const kind = message?.data?.kind;
-    if (message?.type === 'signal' && (kind === 'description' || kind === 'candidate')) {
-      return message;
-    }
-  } catch {}
-  return null;
 }
 
 async function tryRead(path: string) {

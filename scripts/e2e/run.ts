@@ -6,9 +6,9 @@ const tests = process.argv.slice(2).length ? process.argv.slice(2) : ['voice', '
 
 execSync('vite build client --logLevel warn && node scripts/build-desktop.ts', { stdio: 'inherit' });
 
-const server = createSignalingServer({ staticDir: 'client/dist' });
-const port = await server.listen(0);
-const env: NodeJS.ProcessEnv = { ...process.env, BASE_URL: `http://localhost:${port}` };
+// BASE_URL points the suite at an already running server, like `npm run worker`.
+const server = process.env.BASE_URL ? null : createSignalingServer({ staticDir: 'client/dist' });
+const env: NodeJS.ProcessEnv = { ...process.env, BASE_URL: process.env.BASE_URL ?? `http://localhost:${await server!.listen(0)}` };
 delete env.ELECTRON_RUN_AS_NODE;
 
 let failed = 0;
@@ -38,6 +38,6 @@ for (const test of tests) {
   if (code !== 0) failed++;
 }
 
-await server.close();
+await server?.close();
 console.log(failed ? `${failed} failed` : 'all passed');
 process.exit(failed ? 1 : 0);
